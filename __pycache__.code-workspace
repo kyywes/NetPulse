@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "__pycache__"
+		},
+		{
+			"path": "build"
+		},
+		{
+			"path": "dist"
+		},
+		{
+			"path": "icon"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {}
+}
