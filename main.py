@@ -1,120 +1,128 @@
 import os
-import subprocess
 import sys
-import threading
+import subprocess
+import tempfile
+import shutil
+import zipfile
 import tkinter as tk
-import json
 import requests
 
 from netpulsegui import NetPulseGUI
 
-CURRENT_VERSION = "1.4.0"
-RELEASE_JSON_URL = (
-    "https://raw.githubusercontent.com/kyywes/netpulse/main/release.json"
-)
+# --- Configurazione per l’auto‐update GitHub (branch main.zip) ---
+GITHUB_OWNER    = "kyywes"
+GITHUB_REPO     = "NetPulse"
+CURRENT_VERSION = "1.4.1"  # ← metti qui la versione che vuoi "iniettare" nella tua app
+# URL diretto allo ZIP dell’ultimo commit di main
+GITHUB_ZIP_MAIN = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/archive/refs/heads/main.zip"
 
 
 def is_newer_version(remote: str, current: str) -> bool:
-    """Compare semantic versions come '1.4.2' > '1.4.0'."""
+    """Confronto semplice 'semantico' tra due versioni 'x.y.z'."""
     try:
-        remote_parts = tuple(int(p) for p in remote.split("."))
-        current_parts = tuple(int(p) for p in current.split("."))
-        return remote_parts > current_parts
+        r = tuple(int(x) for x in remote.split("."))
+        c = tuple(int(x) for x in current.split("."))
+        return r > c
     except ValueError:
-        # Fallback a confronto stringhe se i numeri non sono parsabili
         return remote > current
+
+
+def github_auto_update():
+    """
+    Scarica sempre main.zip, controlla se la versione nel file version.txt
+    interno allo ZIP è > CURRENT_VERSION, e se sì:
+      - estrae
+      - sovrascrive
+      - rilancia l'app
+    """
+    try:
+        # 1) Scarico lo ZIP
+        tmp = tempfile.mkdtemp(prefix="np_upd_")
+        zip_path = os.path.join(tmp, "main.zip")
+        with requests.get(GITHUB_ZIP_MAIN, stream=True, timeout=10) as r:
+            r.raise_for_status()
+            with open(zip_path, "wb") as f:
+                for chunk in r.iter_content(4096):
+                    f.write(chunk)
+
+        # 2) Estraggo in tmp/<repo>-main
+        with zipfile.ZipFile(zip_path, "r") as z:
+            z.extractall(tmp)
+        extracted = next(
+            os.path.join(tmp, d) for d in os.listdir(tmp)
+            if os.path.isdir(os.path.join(tmp, d))
+        )
+
+        # 3) Leggo la versione interna (opzionale: se hai un version.txt nello ZIP)
+        vk = os.path.join(extracted, "version.txt")
+        if os.path.isfile(vk):
+            with open(vk, "r") as vf:
+                remote_ver = vf.read().strip()
+        else:
+            # Se non hai version.txt, prendi il tag "main" come sempre più nuovo
+            remote_ver = CURRENT_VERSION + ".1"
+
+        if is_newer_version(remote_ver, CURRENT_VERSION):
+            app_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            # 4) Sovrascrivo tutti i file
+            for name in os.listdir(extracted):
+                src = os.path.join(extracted, name)
+                dst = os.path.join(app_dir, name)
+                if os.path.isdir(dst):
+                    shutil.rmtree(dst, ignore_errors=True)
+                elif os.path.isfile(dst):
+                    os.remove(dst)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+
+            # 5) Rilancio l’app e chiudo
+            subprocess.Popen([sys.executable, sys.argv[0]], cwd=app_dir)
+            sys.exit(0)
+
+    except Exception as e:
+        print(f"[Updater] fallito: {e}")
 
 
 def show_splash(on_finish: callable) -> None:
     splash = tk.Tk()
     splash.overrideredirect(True)
-
-    # Centra sullo schermo
-    width, height = 400, 250
+    w, h = 400, 250
     sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
-    pos_x = (sw - width) // 2
-    pos_y = (sh - height) // 2
-    splash.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+    splash.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
     splash.configure(bg="#1e1e1e")
 
-    tk.Label(
-        splash,
-        text="NetPulse",
-        font=("Segoe UI", 28, "bold"),
-        fg="#4CAF50",
-        bg="#1e1e1e",
-    ).pack(pady=(50, 10))
+    tk.Label(splash, text="NetPulse", font=("Segoe UI", 28, "bold"),
+             fg="#4CAF50", bg="#1e1e1e").pack(pady=(50,10))
+    tk.Label(splash, text="Caricamento...", font=("Segoe UI",12),
+             fg="#dcdcdc", bg="#1e1e1e").pack()
 
-    tk.Label(
-        splash,
-        text="Caricamento...",
-        font=("Segoe UI", 12),
-        fg="#dcdcdc",
-        bg="#1e1e1e",
-    ).pack()
-
-    progress = tk.Canvas(
-        splash, width=200, height=10, bg="#2a2a2a", highlightthickness=0
-    )
-    bar = progress.create_rectangle(0, 0, 0, 10, fill="#4CAF50")
+    progress = tk.Canvas(splash, width=200, height=10,
+                         bg="#2a2a2a", highlightthickness=0)
+    bar = progress.create_rectangle(0,0,0,10, fill="#4CAF50")
     progress.pack(pady=20)
 
-    # Anima la barra
-    for width_step in range(0, 201, 4):
-        # dopo delay ms chiama progress.coords(bar, 0,0,width_step,10)
-        splash.after(width_step * 4, progress.coords, bar, 0, 0, width_step, 10)
+    for step in range(0, 201, 4):
+        splash.after(step*4, lambda s=step: progress.coords(bar, 0,0,s,10))  # type: ignore
 
-    # al termine, prima chiudo splash poi chiamo on_finish
     def finish():
         splash.destroy()
         on_finish()
 
-    splash.after(1000, finish)
+    splash.after(1000, finish)  # type: ignore
     splash.mainloop()
-
-
-def check_for_updates(current_version: str, on_ready: callable) -> None:
-    def updater():
-        try:
-            resp = requests.get(RELEASE_JSON_URL, timeout=5)
-            resp.raise_for_status()
-            release = resp.json()
-
-            remote_version = release.get("version", "")
-            if is_newer_version(remote_version, current_version):
-                script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-                for f in release.get("files", []):
-                    name = f.get("name")
-                    url = f.get("url")
-                    if not name or not url:
-                        continue
-                    file_resp = requests.get(url, timeout=5)
-                    file_resp.raise_for_status()
-                    path = os.path.join(script_dir, name)
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    with open(path, "w", encoding="utf-8") as fd:
-                        fd.write(file_resp.text)
-
-                # Se lanciato da .exe, rilancio main.py aggiornato
-                if os.path.basename(sys.argv[0]) != "main.py":
-                    subprocess.Popen(
-                        [sys.executable, os.path.join(script_dir, "main.py")],
-                        cwd=script_dir,
-                    )
-                    sys.exit(0)
-        except (requests.RequestException, json.JSONDecodeError, OSError) as err:
-            print(f"[Updater] update check failed: {err}")
-        finally:
-            on_ready()
-
-    threading.Thread(target=updater, daemon=True).start()
 
 
 def launch_gui() -> None:
     root = tk.Tk()
-    NetPulseGUI(root)   # non è necessario salvare in variabile
+    NetPulseGUI(root)
     root.mainloop()
 
 
+def main():
+    github_auto_update()        # controlla / scarica / ricarica se serve
+    show_splash(launch_gui)     # poi splash e GUI vera
+
 if __name__ == "__main__":
-    check_for_updates(CURRENT_VERSION, lambda: show_splash(launch_gui))
+    main()
