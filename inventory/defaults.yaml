@@ -1,0 +1,4 @@
+# inventory/defaults.yaml
+# lasciare vuoto o mettere valori di default, es:
+# data:
+#   site: "HQ"

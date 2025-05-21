@@ -1,0 +1,12 @@
+# inventory/hosts.yaml
+router1:
+  hostname: 10.0.0.1
+  platform: cisco_ios
+  groups:
+    - ios
+
+switch1:
+  hostname: 10.0.0.2
+  platform: cisco_ios
+  groups:
+    - ios

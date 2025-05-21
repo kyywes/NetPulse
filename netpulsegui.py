@@ -1,74 +1,157 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
+import time
 import csv
 
 from netpulse import NetPulse
 from netpulsetheme import apply_dark_theme
+from netpulse_automate import NetPulseAutomate
+
 
 class NetPulseGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("NetPulse - Network Toolkit")
+        self.root.geometry("860x520")
+        self.root.resizable(False, False)
         apply_dark_theme(self.root)
 
-        # Frame di controllo
-        control_frame = ttk.Frame(self.root, padding=10)
-        control_frame.pack(fill=tk.X)
+        self.netpulse = NetPulse()
+        # passa il path all'inventory YAML
+        self.automate = NetPulseAutomate("inventory/inventory.yaml")
+        self.command_var = tk.StringVar(value="Ping")
+        self.param_var = tk.StringVar()
+        self.continuous_ping = tk.BooleanVar(value=False)
+        self.status_var = tk.StringVar(value="Pronto.")
+        self.thread = None
 
-        ttk.Label(control_frame, text="Indirizzo o rete (CIDR):").pack(side=tk.LEFT)
-        self.target_entry = ttk.Entry(control_frame, width=30)
-        self.target_entry.pack(side=tk.LEFT, padx=(5,10))
+        self._build_ui()
 
-        self.ping_button = ttk.Button(control_frame, text="Ping", command=self._start_ping)
-        self.ping_button.pack(side=tk.LEFT)
-        self.scan_button = ttk.Button(control_frame, text="Scansione", command=self._start_scan)
-        self.scan_button.pack(side=tk.LEFT, padx=(5,0))
+    def _build_ui(self):
+        frame = ttk.Frame(self.root)
+        frame.pack(pady=12)
 
-        # Area di output
-        self.output_text = tk.Text(self.root, wrap=tk.NONE, height=20)
-        self.output_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        ttk.Label(frame, text="Comando:").grid(row=0, column=0, padx=5)
+        self.command_box = ttk.Combobox(
+            frame,
+            textvariable=self.command_var,
+            values=[
+                "Ping", "Traceroute", "Nslookup",
+                "Subnet Info", "Network Scan",
+                "Show Version", "Backup Config", "PAI-PL Version"
+            ],
+            width=22,
+            state="readonly"
+        )
+        self.command_box.grid(row=0, column=1, padx=5)
 
-        # Barra di stato
-        status_frame = ttk.Frame(self.root, padding=5)
-        status_frame.pack(fill=tk.X)
-        self.status_label = ttk.Label(status_frame, text="Pronto")
-        self.status_label.pack(side=tk.LEFT)
-        ttk.Button(status_frame, text="Pulisci", command=self._clear_output).pack(side=tk.RIGHT, padx=(0,5))
-        ttk.Button(status_frame, text="Esporta", command=self._export_output).pack(side=tk.RIGHT)
+        ttk.Label(frame, text="Parametro:").grid(row=0, column=2, padx=5)
+        self.param_entry = ttk.Entry(frame, textvariable=self.param_var, width=30)
+        self.param_entry.grid(row=0, column=3)
+        self.param_entry.bind("<Return>", lambda e: self._start_command())
 
-    def _start_ping(self):
-        target = self.target_entry.get().strip()
-        if not target:
-            messagebox.showwarning("Ping", "Inserisci un indirizzo o un hostname.")
-            return
-        threading.Thread(target=self._run_ping, args=(target,), daemon=True).start()
+        self.ping_check = ttk.Checkbutton(
+            frame, text="Ping continuo (-t)", variable=self.continuous_ping
+        )
+        self.ping_check.grid(row=0, column=4, padx=8)
 
-    def _run_ping(self, target):
-        self._set_status(f"Pinging {target}…")
-        np = NetPulse()
-        for line, _ in np.ping(target):
-            self._append_output(line)
-        self._set_status("Ping completato")
+        btn_frame = ttk.Frame(self.root)
+        btn_frame.pack(pady=6)
+        for txt, cmd in [
+            ("Esegui", self._start_command),
+            ("Stop", self._stop_command),
+            ("Pulisci", self._clear_output),
+            ("Esporta TXT", self._export_output),
+            ("Esporta CSV", self._export_csv),
+        ]:
+            ttk.Button(btn_frame, text=txt, command=cmd, width=12).pack(side="left", padx=6)
 
-    def _start_scan(self):
-        cidr = self.target_entry.get().strip()
-        if not cidr:
-            messagebox.showwarning("Scansione", "Inserisci una rete in formato CIDR.")
-            return
-        threading.Thread(target=self._run_scan, args=(cidr,), daemon=True).start()
+        self.output_text = tk.Text(
+            self.root, wrap="word", bg="#202020", fg="#dcdcdc",
+            insertbackground="white", font=("Consolas", 10),
+            relief="flat", borderwidth=6
+        )
+        self.output_text.pack(expand=True, fill="both", padx=10, pady=(4,6))
+        self.output_text.tag_config("success", foreground="#98c379")
+        self.output_text.tag_config("error",   foreground="#e06c75")
+        self.output_text.tag_config("warning", foreground="#e5c07b")
 
-    def _run_scan(self, cidr):
-        self._set_status(f"Scansione rete {cidr}…")
-        np = NetPulse()
-        result = np.scan_network(cidr)
-        hosts = result.get("hosts", []) if isinstance(result, dict) else result
-        for ip in hosts:
-            self._append_output(ip)
-        self._set_status("Scansione completata")
+        self.status_bar = ttk.Label(
+            self.root, textvariable=self.status_var, relief="flat", anchor="w"
+        )
+        self.status_bar.pack(fill="x", padx=10, pady=(0,6))
 
-    def _append_output(self, line):
-        self.output_text.insert(tk.END, line + "\n")
+        self.progress = ttk.Progressbar(self.root, mode="indeterminate")
+        self.progress.pack(fill="x", padx=10, pady=(0,6))
+
+    def _start_command(self):
+        self._clear_output()
+        self.status_var.set("In esecuzione…")
+        self.progress.start(10)
+        self.thread = threading.Thread(target=self._execute_command, daemon=True)
+        self.thread.start()
+
+    def _stop_command(self):
+        self.netpulse.stop_ping()
+        self.status_var.set("Comando interrotto.")
+        self.progress.stop()
+
+    def _execute_command(self):
+        cmd = self.command_var.get().lower()
+        param = self.param_var.get().strip()
+        try:
+            if cmd == "ping" and self.continuous_ping.get():
+                self.netpulse.ping(param, continuous=True, callback=self._live_append)
+                self.status_var.set("Ping continuo terminato.")
+                return
+            elif cmd == "ping":
+                result = self.netpulse.ping(param)
+            elif cmd == "traceroute":
+                result = self.netpulse.traceroute(param)
+            elif cmd == "nslookup":
+                result = self.netpulse.nslookup(param)
+            elif cmd == "subnet info":
+                result = self.netpulse.calc_subnet_info(param)
+            elif cmd == "network scan":
+                result = self.netpulse.scan_network(param)
+            elif cmd == "show version":
+                result = self.automate.show_version()
+            elif cmd == "backup config":
+                result = self.automate.backup_config()
+            elif cmd == "pai-pl version":
+                result = self.automate.show_pai_version()
+            else:
+                result = {"error": "Comando non valido"}
+
+            if isinstance(result, dict):
+                text = self.netpulse.format_output(result)
+                self._fade_in_output(text)
+                self.status_var.set("Comando completato.")
+        except Exception as e:
+            self.output_text.insert(tk.END, f"Errore: {e}\n", "error")
+            self.status_var.set("Errore durante l'esecuzione.")
+        finally:
+            self.progress.stop()
+
+    def _fade_in_output(self, text: str):
+        for line in text.splitlines():
+            low = line.lower()
+            tag = "success"
+            if "error" in low or "errore" in low:
+                tag = "error"
+            elif low.startswith("no") or low.startswith("false"):
+                tag = "warning"
+            self.output_text.insert(tk.END, line + "\n", tag)
+            self.output_text.see(tk.END)
+            self.output_text.update()
+            time.sleep(0.01)
+
+    def _live_append(self, line: str):
+        tag = "success"
+        if "error" in line.lower():
+            tag = "error"
+        self.output_text.insert(tk.END, line + "\n", tag)
         self.output_text.see(tk.END)
         self.output_text.update()
 
@@ -76,24 +159,33 @@ class NetPulseGUI:
         self.output_text.delete("1.0", tk.END)
 
     def _export_output(self):
-        content = self.output_text.get("1.0", tk.END).strip().splitlines()
+        content = self.output_text.get("1.0", tk.END).strip()
         if not content:
             messagebox.showinfo("Esporta", "Nessun contenuto da esportare.")
             return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".txt", filetypes=[("Text files", "*.txt")]
+        )
+        if path:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            self.status_var.set(f"Output esportato in: {path}")
 
-        path = filedialog.asksaveasfilename(defaultextension=".csv",
-                                            filetypes=[("CSV files", "*.csv")])
-        if not path:
+    def _export_csv(self):
+        lines = self.output_text.get("1.0", tk.END).strip().splitlines()
+        if not lines:
+            messagebox.showinfo("Esporta CSV", "Nessun contenuto da esportare.")
             return
-
-        try:
-            with open(path, "w", newline="", encoding="utf-8") as csvfile:
-                writer = csv.writer(csvfile)
-                for row in content:
-                    writer.writerow([row])
-            messagebox.showinfo("Esporta", f"Output salvato in {path}.")
-        except Exception as e:
-            messagebox.showerror("Errore esportazione", str(e))
-
-    def _set_status(self, text):
-        self.status_label.config(text=text)
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv", filetypes=[("CSV files", "*.csv")]
+        )
+        if path:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                for line in lines:
+                    if ":" in line:
+                        k, v = line.split(":", 1)
+                        writer.writerow([k.strip(), v.strip()])
+                    else:
+                        writer.writerow([line])
+            self.status_var.set(f"CSV salvato in: {path}")

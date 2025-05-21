@@ -1,0 +1,4 @@
+scrapli==2025.1.30
+paramiko>=3.3.2
+PyYAML>=6.0.2
+requests>=2.28.1

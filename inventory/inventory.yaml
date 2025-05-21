@@ -1,0 +1,17 @@
+router1:
+  host: 192.168.1.1
+  platform: cisco_iosxe
+  username: admin
+  password: MySecurePwd
+
+switch1:
+  host: 192.168.1.2
+  platform: cisco_iosxe
+  username: admin
+  password: MySecurePwd
+
+pai_machine:
+  host: 192.168.1.100
+  username: root
+  password: LinuxPass
+  type: linux
