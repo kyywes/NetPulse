@@ -1,8 +1,0 @@
-# inventory/groups.yaml
-ios:
-  username: admin
-  password: MySecretPass
-  connection_options:
-    netmiko:
-      extras:
-        secret: MyEnableSecret
