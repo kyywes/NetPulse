@@ -1,79 +1,99 @@
-import yaml
 import os
+import pyodbc
+import requests
 import paramiko
-from scrapli import Scrapli
-from concurrent.futures import ThreadPoolExecutor
-
+from configparser import ConfigParser
 
 class NetPulseAutomate:
-    def __init__(self, inventory_file: str):
-        with open(inventory_file, "r") as f:
-            data = yaml.safe_load(f)
-        self.inventory = data
+    def __init__(self, db_config_file="inventory/db_config.ini"):
+        if not os.path.isfile(db_config_file):
+            raise FileNotFoundError(f"Config DB non trovato: {db_config_file}")
+        cfg = ConfigParser()
+        cfg.read(db_config_file)
+        s = cfg["sqlserver"]
+        self.conn_str = (
+            f"DRIVER={s['driver']};"
+            f"SERVER={s['server']};"
+            f"DATABASE={s['database']};"
+            f"UID={s['username']};"
+            f"PWD={s['password']};"
+            f"Encrypt={s.get('encrypt','no')};"
+            f"TrustServerCertificate={s.get('TrustServerCertificate','yes')}"
+        )
 
-    def show_version(self) -> dict:
+    def _get_devices(self, marker: str) -> list[dict]:
+        """
+        Legge dalla vista v_ListaPL tutti i campi IP_* per PL = marker.
+        """
+        con = pyodbc.connect(self.conn_str)
+        cur = con.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM dbo.v_ListaPL
+            WHERE PL = ?
+            """,
+            marker
+        )
+        row = cur.fetchone()
+        con.close()
+        if not row:
+            return []
+
+        cols = [col[0] for col in cur.description]
+        devs = []
+        for idx, col in enumerate(cols):
+            if col.upper().startswith("IP_"):
+                ip = row[idx]
+                if ip and str(ip).strip():
+                    role = col[3:].replace("_", " ").title()
+                    devs.append({"role": role, "host": str(ip).strip()})
+        return devs
+
+    def connect_devices(self, marker: str) -> dict:
+        """HTTP GET su ogni IP_*, restituisce UP/DOWN."""
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
+
         results = {}
-        def _run_net(device, p):
-            with Scrapli(
-                host=p["host"],
-                auth_username=p["username"],
-                auth_password=p["password"],
-                platform=p["platform"],
-                transport="paramiko",
-                auth_strict_key=False
-            ) as conn:
-                r = conn.send_command("show version")
-                return device, r.result
+        for dev in devs:
+            url = f"http://{dev['host']}"
+            try:
+                r = requests.get(url, timeout=5)
+                results[dev["role"]] = f"UP ({r.status_code})"
+            except Exception as e:
+                results[dev["role"]] = f"DOWN ({type(e).__name__})"
+        return {"connect devices": results}
 
-        net_devs = {d:p for d,p in self.inventory.items() if p.get("type") != "linux"}
-        with ThreadPoolExecutor(max_workers=len(net_devs)) as ex:
-            futures = [ex.submit(_run_net, d, p) for d,p in net_devs.items()]
-            for f in futures:
-                dev, out = f.result()
-                results[dev] = out
-        return {"show version": results}
+    def show_pai_version(self, marker: str) -> dict:
+        """
+        SSH su ogni IP_* → ./PAI-PL_USR v
+        """
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
 
-    def backup_config(self) -> dict:
         results = {}
-        os.makedirs("backups", exist_ok=True)
-        def _run_backup(device, p):
-            with Scrapli(
-                host=p["host"],
-                auth_username=p["username"],
-                auth_password=p["password"],
-                platform=p["platform"],
-                transport="paramiko",
-                auth_strict_key=False
-            ) as conn:
-                r = conn.send_command("show running-config")
-                fname = f"backups/{device}_config.txt"
-                with open(fname, "w", encoding="utf-8") as f:
-                    f.write(r.result)
-                return device, "OK"
-
-        net_devs = {d:p for d,p in self.inventory.items() if p.get("type") != "linux"}
-        with ThreadPoolExecutor(max_workers=len(net_devs)) as ex:
-            futures = [ex.submit(_run_backup, d, p) for d,p in net_devs.items()]
-            for f in futures:
-                dev, status = f.result()
-                results[dev] = status
-        return {"backup config": results}
-
-    def show_pai_version(self) -> dict:
-        results = {}
-        linux_devs = {d:p for d,p in self.inventory.items() if p.get("type") == "linux"}
-        for device, p in linux_devs.items():
+        for dev in devs:
+            ip = dev["host"]
+            role = dev["role"]
             try:
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(hostname=p["host"],
-                            username=p["username"],
-                            password=p["password"],
-                            timeout=10)
+                ssh.connect(ip, timeout=10)
                 stdin, stdout, stderr = ssh.exec_command("./PAI-PL_USR v")
-                out = stdout.read().decode().strip()
+                out = stdout.read().decode().strip() or stderr.read().decode().strip()
                 ssh.close()
-                results[device] = out
+                results[role] = out or "<no output>"
             except Exception as e:
-                results[device] = f"Error: {e}"
+                results[role] = f"SSH Error: {e}"
         return {"pai-pl version": results}
+
+    def backup_config(self, marker: str) -> dict:
+        """
+        Stub placeholder: qui implementerei show running-config via SSH.
+        """
+        return {"backup config": "Non ancora implementato"}

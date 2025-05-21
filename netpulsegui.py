@@ -1,5 +1,6 @@
+import os
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox, filedialog
 import threading
 import time
 import csv
@@ -8,24 +9,28 @@ from netpulse import NetPulse
 from netpulsetheme import apply_dark_theme
 from netpulse_automate import NetPulseAutomate
 
-
 class NetPulseGUI:
     def __init__(self, root):
-        self.root = root
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        db_ini   = os.path.join(base_dir, "inventory", "db_config.ini")
+        if not os.path.isfile(db_ini):
+            messagebox.showerror("Errore", f"Config DB non trovato:\n{db_ini}")
+            root.destroy()
+            return
+
+        self.root       = root
+        self.netpulse   = NetPulse()
+        self.automate   = NetPulseAutomate(db_ini)
+        self.command_var     = tk.StringVar(value="Ping")
+        self.param_var       = tk.StringVar(value="")
+        self.continuous_ping = tk.BooleanVar(value=False)
+        self.status_var      = tk.StringVar(value="Pronto.")
+        self.thread          = None
+
+        apply_dark_theme(self.root)
         self.root.title("NetPulse - Network Toolkit")
         self.root.geometry("860x520")
         self.root.resizable(False, False)
-        apply_dark_theme(self.root)
-
-        self.netpulse = NetPulse()
-        # passa il path all'inventory YAML
-        self.automate = NetPulseAutomate("inventory/inventory.yaml")
-        self.command_var = tk.StringVar(value="Ping")
-        self.param_var = tk.StringVar()
-        self.continuous_ping = tk.BooleanVar(value=False)
-        self.status_var = tk.StringVar(value="Pronto.")
-        self.thread = None
-
         self._build_ui()
 
     def _build_ui(self):
@@ -37,9 +42,9 @@ class NetPulseGUI:
             frame,
             textvariable=self.command_var,
             values=[
-                "Ping", "Traceroute", "Nslookup",
-                "Subnet Info", "Network Scan",
-                "Show Version", "Backup Config", "PAI-PL Version"
+                "Ping","Traceroute","Nslookup",
+                "Subnet Info","Network Scan",
+                "Connect Devices","Backup Config","PAI-PL Version"
             ],
             width=22,
             state="readonly"
@@ -51,34 +56,37 @@ class NetPulseGUI:
         self.param_entry.grid(row=0, column=3)
         self.param_entry.bind("<Return>", lambda e: self._start_command())
 
-        self.ping_check = ttk.Checkbutton(
-            frame, text="Ping continuo (-t)", variable=self.continuous_ping
-        )
-        self.ping_check.grid(row=0, column=4, padx=8)
+        ttk.Checkbutton(
+            frame,
+            text="Ping continuo (-t)",
+            variable=self.continuous_ping
+        ).grid(row=0, column=4, padx=8)
 
-        btn_frame = ttk.Frame(self.root)
-        btn_frame.pack(pady=6)
-        for txt, cmd in [
-            ("Esegui", self._start_command),
-            ("Stop", self._stop_command),
-            ("Pulisci", self._clear_output),
+        btns = [
+            ("Esegui",      self._start_command),
+            ("Stop",        self._stop_command),
+            ("Pulisci",     self._clear_output),
             ("Esporta TXT", self._export_output),
             ("Esporta CSV", self._export_csv),
-        ]:
-            ttk.Button(btn_frame, text=txt, command=cmd, width=12).pack(side="left", padx=6)
+        ]
+        btn_frame = ttk.Frame(self.root)
+        btn_frame.pack(pady=6)
+        for txt, cmd in btns:
+            ttk.Button(btn_frame, text=txt, command=cmd, width=12)\
+                .pack(side="left", padx=6)
 
         self.output_text = tk.Text(
-            self.root, wrap="word", bg="#202020", fg="#dcdcdc",
-            insertbackground="white", font=("Consolas", 10),
-            relief="flat", borderwidth=6
+            self.root, wrap="word",
+            bg="#202020", fg="#dcdcdc", insertbackground="white",
+            font=("Consolas",10), relief="flat", borderwidth=6
         )
         self.output_text.pack(expand=True, fill="both", padx=10, pady=(4,6))
-        self.output_text.tag_config("success", foreground="#98c379")
-        self.output_text.tag_config("error",   foreground="#e06c75")
-        self.output_text.tag_config("warning", foreground="#e5c07b")
+        for tag, color in [("success","#98c379"),("error","#e06c75"),("warning","#e5c07b")]:
+            self.output_text.tag_config(tag, foreground=color)
 
         self.status_bar = ttk.Label(
-            self.root, textvariable=self.status_var, relief="flat", anchor="w"
+            self.root, textvariable=self.status_var,
+            relief="flat", anchor="w"
         )
         self.status_bar.pack(fill="x", padx=10, pady=(0,6))
 
@@ -86,7 +94,7 @@ class NetPulseGUI:
         self.progress.pack(fill="x", padx=10, pady=(0,6))
 
     def _start_command(self):
-        self._clear_output()
+        self.output_text.delete("1.0", tk.END)
         self.status_var.set("In esecuzione…")
         self.progress.start(10)
         self.thread = threading.Thread(target=self._execute_command, daemon=True)
@@ -98,7 +106,7 @@ class NetPulseGUI:
         self.progress.stop()
 
     def _execute_command(self):
-        cmd = self.command_var.get().lower()
+        cmd   = self.command_var.get().lower()
         param = self.param_var.get().strip()
         try:
             if cmd == "ping" and self.continuous_ping.get():
@@ -115,19 +123,19 @@ class NetPulseGUI:
                 result = self.netpulse.calc_subnet_info(param)
             elif cmd == "network scan":
                 result = self.netpulse.scan_network(param)
-            elif cmd == "show version":
-                result = self.automate.show_version()
+            elif cmd == "connect devices":
+                result = self.automate.connect_devices(param)
             elif cmd == "backup config":
-                result = self.automate.backup_config()
+                result = self.automate.backup_config(param)
             elif cmd == "pai-pl version":
-                result = self.automate.show_pai_version()
+                result = self.automate.show_pai_version(param)
             else:
                 result = {"error": "Comando non valido"}
 
-            if isinstance(result, dict):
-                text = self.netpulse.format_output(result)
-                self._fade_in_output(text)
-                self.status_var.set("Comando completato.")
+            out = (self.netpulse.format_output(result)
+                   if isinstance(result, dict) else str(result))
+            self._fade_in_output(out)
+            self.status_var.set("Comando completato.")
         except Exception as e:
             self.output_text.insert(tk.END, f"Errore: {e}\n", "error")
             self.status_var.set("Errore durante l'esecuzione.")
@@ -137,10 +145,11 @@ class NetPulseGUI:
     def _fade_in_output(self, text: str):
         for line in text.splitlines():
             low = line.lower()
-            tag = "success"
-            if "error" in low or "errore" in low:
+            if "up" in low or "200" in low:
+                tag = "success"
+            elif "down" in low or "error" in low:
                 tag = "error"
-            elif low.startswith("no") or low.startswith("false"):
+            else:
                 tag = "warning"
             self.output_text.insert(tk.END, line + "\n", tag)
             self.output_text.see(tk.END)
@@ -148,9 +157,7 @@ class NetPulseGUI:
             time.sleep(0.01)
 
     def _live_append(self, line: str):
-        tag = "success"
-        if "error" in line.lower():
-            tag = "error"
+        tag = "error" if "errore" in line.lower() else "success"
         self.output_text.insert(tk.END, line + "\n", tag)
         self.output_text.see(tk.END)
         self.output_text.update()
@@ -163,9 +170,8 @@ class NetPulseGUI:
         if not content:
             messagebox.showinfo("Esporta", "Nessun contenuto da esportare.")
             return
-        path = filedialog.asksaveasfilename(
-            defaultextension=".txt", filetypes=[("Text files", "*.txt")]
-        )
+        path = filedialog.asksaveasfilename(defaultextension=".txt",
+                                            filetypes=[("Text files","*.txt")])
         if path:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
@@ -176,9 +182,8 @@ class NetPulseGUI:
         if not lines:
             messagebox.showinfo("Esporta CSV", "Nessun contenuto da esportare.")
             return
-        path = filedialog.asksaveasfilename(
-            defaultextension=".csv", filetypes=[("CSV files", "*.csv")]
-        )
+        path = filedialog.asksaveasfilename(defaultextension=".csv",
+                                            filetypes=[("CSV files","*.csv")])
         if path:
             with open(path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
@@ -188,4 +193,4 @@ class NetPulseGUI:
                         writer.writerow([k.strip(), v.strip()])
                     else:
                         writer.writerow([line])
-            self.status_var.set(f"CSV salvato in: {path}")
+            self.status_var.set(f"Output CSV salvato in: {path}")

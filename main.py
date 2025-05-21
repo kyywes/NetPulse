@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import os
 import sys
 import subprocess
@@ -9,14 +12,18 @@ import requests
 
 from netpulsegui import NetPulseGUI
 
-# --- Configurazione auto‐update GitHub (branch main.zip) ---
+# --- auto-update GitHub ---
 GITHUB_OWNER    = "kyywes"
 GITHUB_REPO     = "NetPulse"
 CURRENT_VERSION = "1.4.1"
-GITHUB_ZIP_MAIN = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/archive/refs/heads/main.zip"
+GITHUB_ZIP_MAIN = (
+    f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/"
+    "archive/refs/heads/main.zip"
+)
 
 
 def is_newer_version(remote: str, current: str) -> bool:
+    """Confronto semantico tra due versioni 'x.y.z'."""
     try:
         r = tuple(int(x) for x in remote.split("."))
         c = tuple(int(x) for x in current.split("."))
@@ -26,27 +33,34 @@ def is_newer_version(remote: str, current: str) -> bool:
 
 
 def github_auto_update():
+    """
+    Scarica main.zip, legge version.txt e, se rem > cur, sovrascrive
+    e rilancia; altrimenti prosegue.
+    """
     try:
         tmp = tempfile.mkdtemp(prefix="np_upd_")
-        zip_path = os.path.join(tmp, "main.zip")
+        zipp = os.path.join(tmp, "main.zip")
         with requests.get(GITHUB_ZIP_MAIN, stream=True, timeout=10) as r:
             r.raise_for_status()
-            with open(zip_path, "wb") as f:
+            with open(zipp, "wb") as f:
                 for chunk in r.iter_content(4096):
                     f.write(chunk)
-        with zipfile.ZipFile(zip_path, "r") as z:
+
+        with zipfile.ZipFile(zipp, "r") as z:
             z.extractall(tmp)
         extracted = next(
-            os.path.join(tmp, d) for d in os.listdir(tmp)
+            os.path.join(tmp, d)
+            for d in os.listdir(tmp)
             if os.path.isdir(os.path.join(tmp, d))
         )
-        # legge version.txt
+
         vk = os.path.join(extracted, "version.txt")
         if os.path.isfile(vk):
-            with open(vk) as vf:
+            with open(vk, "r") as vf:
                 remote_ver = vf.read().strip()
         else:
-            remote_ver = CURRENT_VERSION
+            remote_ver = CURRENT_VERSION  # fallback
+
         if is_newer_version(remote_ver, CURRENT_VERSION):
             app_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             for name in os.listdir(extracted):
@@ -60,13 +74,14 @@ def github_auto_update():
                     shutil.copytree(src, dst)
                 else:
                     shutil.copy2(src, dst)
+
             subprocess.Popen([sys.executable, sys.argv[0]], cwd=app_dir)
             sys.exit(0)
     except Exception as e:
         print(f"[Updater] fallito: {e}")
 
 
-def show_splash(on_finish: callable) -> None:
+def show_splash():
     splash = tk.Tk()
     splash.overrideredirect(True)
     w, h = 400, 250
@@ -79,21 +94,18 @@ def show_splash(on_finish: callable) -> None:
     tk.Label(splash, text="Caricamento...", font=("Segoe UI",12),
              fg="#dcdcdc", bg="#1e1e1e").pack()
 
-    progress = tk.Canvas(splash, width=200, height=10,
-                         bg="#2a2a2a", highlightthickness=0)
-    bar = progress.create_rectangle(0,0,0,10, fill="#4CAF50")
-    progress.pack(pady=20)
-    for step in range(0, 201, 4):
-        splash.after(step*4, lambda s=step: progress.coords(bar, 0,0,s,10))  # type: ignore
+    canvas = tk.Canvas(splash, width=200, height=10,
+                       bg="#2a2a2a", highlightthickness=0)
+    bar = canvas.create_rectangle(0,0,0,10, fill="#4CAF50")
+    canvas.pack(pady=20)
+    for i in range(0, 201, 4):
+        splash.after(i*4, lambda x=i: canvas.coords(bar, 0,0,x,10))
 
-    def finish():
-        splash.destroy()
-        on_finish()
-    splash.after(1000, finish)  # type: ignore
+    splash.after(1000, splash.destroy)
     splash.mainloop()
 
 
-def launch_gui() -> None:
+def launch_gui():
     root = tk.Tk()
     NetPulseGUI(root)
     root.mainloop()
@@ -101,7 +113,8 @@ def launch_gui() -> None:
 
 def main():
     github_auto_update()
-    show_splash(launch_gui)
+    show_splash()
+    launch_gui()
 
 
 if __name__ == "__main__":

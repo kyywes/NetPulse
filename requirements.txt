@@ -1,4 +1,9 @@
 scrapli==2025.1.30
 paramiko>=3.3.2
 PyYAML>=6.0.2
-requests>=2.28.1
+requests>=2.32.0
+pyodbc>=4.0.0
+
+
+cryptography~=45.0.2
+future~=1.0.0
