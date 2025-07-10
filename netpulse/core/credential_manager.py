@@ -129,7 +129,9 @@ class CredentialManager:
         """Encrypt data using Fernet encryption"""
         try:
             key = self._get_encryption_key()
-            f = Fernet(key)
+            # Fernet expects URL-safe base64-encoded key
+            key_b64 = base64.urlsafe_b64encode(key)
+            f = Fernet(key_b64)
             encrypted = f.encrypt(data.encode())
             return base64.urlsafe_b64encode(encrypted).decode()
         except Exception as e:
@@ -139,7 +141,9 @@ class CredentialManager:
         """Decrypt data using Fernet encryption"""
         try:
             key = self._get_encryption_key()
-            f = Fernet(key)
+            # Fernet expects URL-safe base64-encoded key
+            key_b64 = base64.urlsafe_b64encode(key)
+            f = Fernet(key_b64)
             encrypted = base64.urlsafe_b64decode(encrypted_data.encode())
             decrypted = f.decrypt(encrypted)
             return decrypted.decode()
