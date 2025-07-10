@@ -278,6 +278,10 @@ class UpdateManager:
     
     def show_update_progress(self):
         """Show update progress window"""
+        if not HAS_GUI:
+            self.log_message("GUI not available - showing update progress in console")
+            return
+            
         self.update_window = tk.Toplevel()
         self.update_window.title("Updating NetPulse")
         self.update_window.geometry("500x300")
