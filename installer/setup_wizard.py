@@ -757,7 +757,7 @@ def uninstall_netpulse():
             messagebox.showinfo("Success", "NetPulse has been uninstalled successfully.")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to uninstall NetPulse: {{str(e)}}")
+            messagebox.showerror("Error", f"Failed to uninstall NetPulse: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
