@@ -13,7 +13,7 @@ from netpulse.gui.theme import apply_modern_theme, ModernTheme
 from netpulse.automation.device_manager import DeviceManager
 from netpulse.core.config_manager import ConfigManager
 
-class ModernNetPulseGUI:
+class NetPulseApplication:
     """Modern NetPulse GUI with tabbed interface and enhanced features"""
     
     def __init__(self, root):
