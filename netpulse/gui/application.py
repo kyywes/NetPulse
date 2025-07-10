@@ -919,24 +919,83 @@ Your credentials will be stored securely and encrypted."""
             self.root.after(0, self._display_automation_result, error_result, execution_time)
     
     def _display_automation_result(self, result: dict, execution_time: float):
-        """Display automation command result"""
+        """Display automation command result with enhanced formatting"""
         self.progress.stop()
         
-        # Add timestamp
+        # Add timestamp with better formatting
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.automation_output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+        self.automation_output_text.insert(tk.END, f"\n╭─ [{timestamp}] ", "timestamp")
         
-        # Format and display result
-        if result.get('success', True):
-            formatted_output = self.network_tools.format_output(result)
-            self._append_colored_text(self.automation_output_text, formatted_output)
-            self.status_var.set(f"Command completed in {execution_time:.2f}s")
+        # Add execution time
+        self.automation_output_text.insert(tk.END, f"Completed in {execution_time:.2f}s ─╮\n", "info")
+        
+        # Enhanced formatting for MCU control results
+        if result.get('marker') and result.get('devices'):  # New MCU format
+            self._display_mcu_result(result)
         else:
-            error_msg = result.get('error', 'Unknown error')
-            self.automation_output_text.insert(tk.END, f"Error: {error_msg}\n", "error")
-            self.status_var.set(f"Command failed after {execution_time:.2f}s")
+            # Standard format for other commands
+            if result.get('success', True):
+                formatted_output = self.network_tools.format_output(result)
+                
+                # Add border and formatting
+                self.automation_output_text.insert(tk.END, "│ ", "info")
+                self._append_colored_text(self.automation_output_text, formatted_output.replace('\n', '\n│ '))
+                self.automation_output_text.insert(tk.END, "\n╰─────────────────────────────────────────────────────────────────╯\n", "info")
+                
+                self.status_var.set(f"✓ Command completed in {execution_time:.2f}s")
+            else:
+                error_msg = result.get('error', 'Unknown error')
+                self.automation_output_text.insert(tk.END, "│ ", "error")
+                self.automation_output_text.insert(tk.END, f"❌ Error: {error_msg}\n", "error")
+                self.automation_output_text.insert(tk.END, "╰─────────────────────────────────────────────────────────────────╯\n", "error")
+                self.status_var.set(f"✗ Command failed after {execution_time:.2f}s")
         
         self.automation_output_text.see(tk.END)
+    
+    def _display_mcu_result(self, result: dict):
+        """Display MCU-specific results with enhanced formatting"""
+        marker = result.get('marker', 'Unknown')
+        devices = result.get('devices', {})
+        
+        self.automation_output_text.insert(tk.END, f"│ 🎯 Device Marker: {marker}\n", "info")
+        self.automation_output_text.insert(tk.END, "│\n", "info")
+        
+        for role, device_info in devices.items():
+            self.automation_output_text.insert(tk.END, f"│ 🖥️  {role}:\n", "success")
+            
+            if 'error' in device_info:
+                self.automation_output_text.insert(tk.END, f"│   ❌ Error: {device_info['error']}\n", "error")
+                continue
+            
+            # Display host
+            if 'host' in device_info:
+                self.automation_output_text.insert(tk.END, f"│   🌐 Host: {device_info['host']}\n", "info")
+            
+            # Display MCU parameter
+            if 'mcu_parameter' in device_info:
+                self.automation_output_text.insert(tk.END, f"│   ⚙️  MCU Parameter: ", "info")
+                self.automation_output_text.insert(tk.END, f"{device_info['mcu_parameter']}\n", "success")
+            
+            # Display kilometric info
+            if 'kilometric_info' in device_info:
+                km_info = device_info['kilometric_info']
+                if 'kilometric_parameter' in km_info:
+                    self.automation_output_text.insert(tk.END, f"│   📍 Kilometric: ", "info")
+                    self.automation_output_text.insert(tk.END, f"{km_info['kilometric_parameter']}\n", "warning")
+            
+            # Display system status
+            if 'uptime' in device_info:
+                self.automation_output_text.insert(tk.END, f"│   ⏱️  Uptime: {device_info['uptime'].strip()}\n", "info")
+            
+            # For change operations, show verification
+            if 'verification' in device_info:
+                self.automation_output_text.insert(tk.END, f"│   ✅ Verification: ", "success")
+                self.automation_output_text.insert(tk.END, f"{device_info['verification']}\n", "success")
+            
+            self.automation_output_text.insert(tk.END, "│\n", "info")
+        
+        self.automation_output_text.insert(tk.END, "╰─────────────────────────────────────────────────────────────────╯\n", "info")
+        self.status_var.set(f"✓ MCU operation completed for {marker}")
     
     def _on_mcu_action_change(self, event=None):
         """Handle MCU action selection change"""
