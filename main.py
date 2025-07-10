@@ -124,7 +124,22 @@ def launch_gui():
 
 
 def main():
-    github_auto_update()
+    # Use enhanced auto-update system
+    try:
+        from updater_enhanced import UpdateManager
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        updater = UpdateManager(app_dir)
+        
+        # Check for updates on startup
+        if updater.should_check_for_updates():
+            print("Checking for updates...")
+            updater.check_for_updates(show_ui=False)
+            
+    except Exception as e:
+        print(f"[Enhanced Updater] Error: {e}")
+        # Fallback to legacy updater if enhanced fails
+        github_auto_update()
+    
     show_splash()
     launch_gui()
 
