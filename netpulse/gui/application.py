@@ -1222,3 +1222,64 @@ Tab Navigation:
         self._save_window_state()
         self.network_tools.stop_all_scans()
         self.root.destroy()
+    
+    def _setup_credentials(self):
+        """Setup automation credentials"""
+        try:
+            from netpulse.automation.device_manager import DeviceManager
+            device_manager = DeviceManager()
+            
+            # Simple credential setup dialog
+            result = messagebox.askyesno("Credential Setup", 
+                "Would you like to setup automation credentials?\n\n" +
+                "This will configure:\n" +
+                "• SQL Server connection (VMSQL\\SQL2019)\n" +
+                "• SSH credentials for device access\n\n" +
+                "Credentials will be stored securely in your system keyring.")
+            
+            if result:
+                # Store the default credentials
+                sql_success = device_manager.credential_manager.store_sql_credentials(
+                    "Utente.TLC", "Eredimercuri01-", "VMSQL\\SQL2019", "PaiPL_PC"
+                )
+                ssh_success = device_manager.credential_manager.store_ssh_credentials(
+                    "root", "p4ssw0rd.355"
+                )
+                
+                if sql_success and ssh_success:
+                    messagebox.showinfo("Success", "✓ Credentials configured successfully!\n\nRestarting automation system...")
+                    
+                    # Reinitialize automation
+                    self.automate = DeviceManager()
+                    
+                    # Recreate automation tab
+                    for i in range(self.notebook.index("end")):
+                        if self.notebook.tab(i, "text") == "Automation":
+                            self.notebook.forget(i)
+                            break
+                    self._create_automation_tab()
+                else:
+                    messagebox.showerror("Error", "Failed to save credentials")
+                    
+        except Exception as ex:
+            messagebox.showerror("Setup Error", f"Failed to setup credentials: {str(ex)}")
+    
+    def _test_automation_connection(self):
+        """Test automation connection"""
+        try:
+            from netpulse.automation.device_manager import DeviceManager
+            device_manager = DeviceManager()
+            connection_test = device_manager.test_connection()
+            
+            result_text = "Connection Test Results:\n\n"
+            result_text += f"Keyring: {'✓' if connection_test['keyring'] else '✗'}\n"
+            result_text += f"Database: {'✓' if connection_test['database'] else '✗'}\n"
+            result_text += f"SSH: {'✓' if connection_test['ssh'] else '✗'}\n"
+            
+            if all(connection_test.values()):
+                messagebox.showinfo("Connection Test", result_text + "\n🎉 All connections working!")
+            else:
+                messagebox.showwarning("Connection Test", result_text + "\n⚠️  Some connections failed.")
+                
+        except Exception as ex:
+            messagebox.showerror("Test Error", f"Connection test failed: {str(ex)}")
