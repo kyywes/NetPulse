@@ -40,11 +40,14 @@ class UpdateManager:
         # Update configuration
         self.config = self.load_config()
         
-        # GitHub configuration
-        self.github_owner = "kyywes"
+        # GitHub configuration - Disabled for now
+        self.github_owner = "your-github-username"  # Update this with your actual GitHub username
         self.github_repo = "NetPulse"
         self.github_api_url = f"https://api.github.com/repos/{self.github_owner}/{self.github_repo}/releases/latest"
         self.github_download_url = f"https://github.com/{self.github_owner}/{self.github_repo}/archive/refs/heads/main.zip"
+        
+        # Disable automatic update check by default
+        self.auto_check_enabled = False
         
         # Current version
         self.current_version = self.get_current_version()
