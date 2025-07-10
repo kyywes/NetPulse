@@ -156,7 +156,7 @@ class DeviceManager:
                     auth_timeout=5  # Faster auth timeout
                 )
             
-            stdin, stdout, stderr = ssh.exec_command(command)
+            stdin, stdout, stderr = ssh.exec_command(command, timeout=timeout)
             output = stdout.read().decode().strip()
             error = stderr.read().decode().strip()
             
