@@ -296,18 +296,47 @@ class NetPulseApplication:
     
     def _create_automation_tab(self):
         """Create device automation tab"""
-        if not self.automate:
-            # Create placeholder tab
-            automation_frame = ttk.Frame(self.notebook)
-            self.notebook.add(automation_frame, text="Automation")
-            
-            ttk.Label(automation_frame, text="Database configuration not found.\nAutomation features are disabled.",
-                     style="Subheading.TLabel", justify="center").pack(expand=True)
-            return
-        
         automation_frame = ttk.Frame(self.notebook)
         self.notebook.add(automation_frame, text="Automation")
         
+        if not self.automate:
+            # Create setup interface for credentials
+            setup_frame = ttk.Frame(automation_frame)
+            setup_frame.pack(expand=True, fill="both", padx=20, pady=20)
+            
+            ttk.Label(setup_frame, text="Automation Setup Required", 
+                     style="Heading.TLabel").pack(pady=(0, 20))
+            
+            setup_text = """NetPulse automation requires database credentials to manage devices.
+
+Please set up your credentials to enable automation features:
+
+• SQL Server connection for device inventory
+• SSH credentials for device access
+• Secure storage using system keyring
+
+Your credentials will be stored securely and encrypted."""
+            
+            text_widget = tk.Text(setup_frame, wrap='word', height=8, width=60,
+                                 bg=ModernTheme.COLORS['bg_secondary'], 
+                                 fg=ModernTheme.COLORS['text_primary'],
+                                 font=ModernTheme.FONTS['default'],
+                                 relief="flat", padx=10, pady=10)
+            text_widget.pack(pady=(0, 20))
+            text_widget.insert('1.0', setup_text)
+            text_widget.config(state='disabled')
+            
+            button_frame = ttk.Frame(setup_frame)
+            button_frame.pack()
+            
+            ttk.Button(button_frame, text="Setup Credentials", style="Accent.TButton",
+                      command=self._setup_credentials).pack(side="left", padx=(0, 10))
+            ttk.Button(button_frame, text="Test Connection", 
+                      command=self._test_automation_connection).pack(side="left")
+            
+            return
+        
+        # Normal automation interface
         # Device selection
         control_frame = ttk.Frame(automation_frame)
         control_frame.pack(fill="x", padx=10, pady=10)
@@ -345,6 +374,8 @@ class NetPulseApplication:
         ttk.Button(buttons_frame, text="Execute", style="Accent.TButton",
                   command=self._execute_automation_command).pack(side="left", padx=(0, 10))
         ttk.Button(buttons_frame, text="Clear", command=self._clear_automation_output).pack(side="left", padx=(0, 10))
+        ttk.Button(buttons_frame, text="Setup Credentials", 
+                  command=self._setup_credentials).pack(side="right")
         
         # Output
         output_frame = ttk.Frame(automation_frame)
