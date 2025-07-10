@@ -677,6 +677,10 @@ Your credentials will be stored securely and encrypted."""
         start_time = time.time()
         
         try:
+            # Check if command should be stopped before starting
+            if self.stop_requested:
+                return
+                
             if command == "ping":
                 continuous = self.continuous_ping.get()
                 count = int(self.ping_count_var.get()) if not continuous else 4
@@ -695,7 +699,7 @@ Your credentials will be stored securely and encrypted."""
             else:
                 result = {"error": "Unknown command"}
             
-            # Check if command was stopped
+            # Check if command was stopped during execution
             if self.stop_requested:
                 result = {"error": "Command stopped by user", "success": False}
             
@@ -706,11 +710,15 @@ Your credentials will be stored securely and encrypted."""
                 result = {"error": f"Command timed out after {self.command_timeout}s", "success": False}
                 self.network_tools.stop_all_scans()
             
+            # Add safety check for empty or null results
+            if not result or result is None:
+                result = {"error": "Command produced no output", "success": False}
+            
             # Update UI in main thread
             self.root.after(0, self._display_basic_result, result, execution_time)
             
             # Add to history (if not stopped)
-            if not self.stop_requested:
+            if not self.stop_requested and result.get('success', False):
                 self.config.add_to_history(command, params, execution_time, result.get('success', False), 
                                          self.network_tools.format_output(result))
             
