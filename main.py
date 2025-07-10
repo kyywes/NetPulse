@@ -106,7 +106,7 @@ def launch_application():
         
         # Fallback to legacy GUI
         try:
-            from netpulsegui import NetPulseGUI
+            from netpulse.gui.legacy import NetPulseGUI
             
             root = tk.Tk() 
             app = NetPulseGUI(root)
