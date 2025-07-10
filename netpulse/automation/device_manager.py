@@ -127,8 +127,8 @@ class DeviceManager:
         except Exception as e:
             raise Exception(f"Database query failed: {e}")
     
-    def _ssh_command(self, host: str, command: str, timeout: int = 30) -> str:
-        """Execute SSH command on remote host with stored credentials"""
+    def _ssh_command(self, host: str, command: str, timeout: int = 10) -> str:
+        """Execute SSH command on remote host with stored credentials (faster timeout)"""
         if not self.ssh_credentials:
             return "SSH Error: No SSH credentials configured"
         
@@ -136,7 +136,7 @@ class DeviceManager:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            # Use stored credentials
+            # Use stored credentials with faster connection timeout
             if self.ssh_credentials.get('key_file'):
                 # Use key file authentication
                 ssh.connect(
