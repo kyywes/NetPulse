@@ -14,12 +14,19 @@ import hashlib
 import subprocess
 import threading
 import time
-import tkinter as tk
-from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 import requests
 from pathlib import Path
+
+# Optional GUI imports
+try:
+    import tkinter as tk
+    from tkinter import ttk, messagebox
+    HAS_GUI = True
+except ImportError:
+    HAS_GUI = False
+    print("GUI components not available - UpdateManager will run in headless mode")
 
 class UpdateManager:
     """Professional update management system"""
