@@ -5,55 +5,170 @@ import paramiko
 import time
 import json
 from configparser import ConfigParser
+from typing import Dict, List, Optional
+import threading
+
+# Import credential manager
+try:
+    from ..core.credential_manager import CredentialManager
+except ImportError:
+    from netpulse.core.credential_manager import CredentialManager
 
 class DeviceManager:
-    def __init__(self, db_config_file="inventory/db_config.ini"):
-        if not os.path.isfile(db_config_file):
-            raise FileNotFoundError(f"Config DB non trovato: {db_config_file}")
-        cfg = ConfigParser()
-        cfg.read(db_config_file)
-        s = cfg["sqlserver"]
-        self.conn_str = (
-            f"DRIVER={s['driver']};"
-            f"SERVER={s['server']};"
-            f"DATABASE={s['database']};"
-            f"UID={s['username']};"
-            f"PWD={s['password']};"
-            f"Encrypt={s.get('encrypt','no')};"
-            f"TrustServerCertificate={s.get('TrustServerCertificate','yes')}"
-        )
+    """Enhanced device management with secure credential storage"""
+    
+    def __init__(self, db_config_file: str = None):
+        self.db_config_file = db_config_file
+        self.conn_str = None
+        self.ssh_credentials = None
+        self.credential_manager = CredentialManager()
+        
+        # Initialize database connection
+        self._init_database_connection()
+        
+        # Load SSH credentials
+        self._load_ssh_credentials()
+    
+    def _init_database_connection(self):
+        """Initialize database connection with secure credentials"""
+        try:
+            # First try to get credentials from keyring
+            sql_creds = self.credential_manager.get_sql_credentials()
+            
+            if sql_creds:
+                self.conn_str = (
+                    f"DRIVER={sql_creds['driver']};"
+                    f"SERVER={sql_creds['server']};"
+                    f"DATABASE={sql_creds['database']};"
+                    f"UID={sql_creds['username']};"
+                    f"PWD={sql_creds['password']};"
+                    f"Encrypt={sql_creds['encrypt']};"
+                    f"TrustServerCertificate={sql_creds['TrustServerCertificate']}"
+                )
+                print("✓ Database credentials loaded from keyring")
+                return
+            
+            # Fallback to config file if provided
+            if self.db_config_file and os.path.isfile(self.db_config_file):
+                cfg = ConfigParser()
+                cfg.read(self.db_config_file)
+                s = cfg["sqlserver"]
+                
+                self.conn_str = (
+                    f"DRIVER={s['driver']};"
+                    f"SERVER={s['server']};"
+                    f"DATABASE={s['database']};"
+                    f"UID={s['username']};"
+                    f"PWD={s['password']};"
+                    f"Encrypt={s.get('encrypt','no')};"
+                    f"TrustServerCertificate={s.get('TrustServerCertificate','yes')}"
+                )
+                
+                # Store credentials in keyring for future use
+                self.credential_manager.store_sql_credentials(
+                    s['username'], s['password'], s['server'], s['database']
+                )
+                print("✓ Database credentials loaded from config file and stored in keyring")
+                return
+            
+            # If no credentials available, set up interactively
+            print("⚠️  No database credentials found")
+            print("Use: python -m netpulse.core.credential_manager --setup")
+            
+        except Exception as e:
+            print(f"✗ Database initialization failed: {e}")
+            self.conn_str = None
+    
+    def _load_ssh_credentials(self):
+        """Load SSH credentials from keyring"""
+        try:
+            self.ssh_credentials = self.credential_manager.get_ssh_credentials()
+            if self.ssh_credentials:
+                print("✓ SSH credentials loaded from keyring")
+            else:
+                print("⚠️  No SSH credentials found")
+                print("Use: python -m netpulse.core.credential_manager --setup")
+        except Exception as e:
+            print(f"✗ SSH credential loading failed: {e}")
+            self.ssh_credentials = None
+    
+    def _get_devices(self, marker: str) -> List[Dict]:
+        """Get devices from database for a given marker"""
+        if not self.conn_str:
+            raise Exception("Database connection not configured. Run credential setup.")
+        
+        try:
+            con = pyodbc.connect(self.conn_str)
+            cur = con.cursor()
+            cur.execute(
+                """
+                SELECT *
+                FROM dbo.v_ListaPL
+                WHERE PL = ?
+                """,
+                marker
+            )
+            row = cur.fetchone()
+            con.close()
+            
+            if not row:
+                return []
 
-    def _get_devices(self, marker: str) -> list[dict]:
-        """
-        Legge dalla vista v_ListaPL tutti i campi IP_* per PL = marker.
-        """
-        con = pyodbc.connect(self.conn_str)
-        cur = con.cursor()
-        cur.execute(
-            """
-            SELECT *
-            FROM dbo.v_ListaPL
-            WHERE PL = ?
-            """,
-            marker
-        )
-        row = cur.fetchone()
-        con.close()
-        if not row:
-            return []
+            cols = [col[0] for col in cur.description]
+            devs = []
+            for idx, col in enumerate(cols):
+                if col.upper().startswith("IP_"):
+                    ip = row[idx]
+                    if ip and str(ip).strip():
+                        role = col[3:].replace("_", " ").title()
+                        devs.append({"role": role, "host": str(ip).strip()})
+            return devs
+            
+        except Exception as e:
+            raise Exception(f"Database query failed: {e}")
+    
+    def _ssh_command(self, host: str, command: str, timeout: int = 30) -> str:
+        """Execute SSH command on remote host with stored credentials"""
+        if not self.ssh_credentials:
+            return "SSH Error: No SSH credentials configured"
+        
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Use stored credentials
+            if self.ssh_credentials.get('key_file'):
+                # Use key file authentication
+                ssh.connect(
+                    host, 
+                    username=self.ssh_credentials['username'],
+                    key_filename=self.ssh_credentials['key_file'],
+                    timeout=timeout
+                )
+            else:
+                # Use password authentication
+                ssh.connect(
+                    host,
+                    username=self.ssh_credentials['username'], 
+                    password=self.ssh_credentials['password'],
+                    timeout=timeout
+                )
+            
+            stdin, stdout, stderr = ssh.exec_command(command)
+            output = stdout.read().decode().strip()
+            error = stderr.read().decode().strip()
+            
+            ssh.close()
+            
+            if error:
+                return f"Command output: {output}\nError: {error}"
+            return output
+            
+        except Exception as e:
+            return f"SSH Error: {str(e)}"
 
-        cols = [col[0] for col in cur.description]
-        devs = []
-        for idx, col in enumerate(cols):
-            if col.upper().startswith("IP_"):
-                ip = row[idx]
-                if ip and str(ip).strip():
-                    role = col[3:].replace("_", " ").title()
-                    devs.append({"role": role, "host": str(ip).strip()})
-        return devs
-
-    def connect_devices(self, marker: str) -> dict:
-        """HTTP GET su ogni IP_*, restituisce UP/DOWN."""
+    def connect_devices(self, marker: str) -> Dict:
+        """HTTP GET on each device IP to check connectivity"""
         try:
             devs = self._get_devices(marker)
         except Exception as e:
@@ -69,10 +184,8 @@ class DeviceManager:
                 results[dev["role"]] = f"DOWN ({type(e).__name__})"
         return {"connect devices": results}
 
-    def show_pai_version(self, marker: str) -> dict:
-        """
-        SSH su ogni IP_* → ./PAI-PL_USR v
-        """
+    def show_pai_version(self, marker: str) -> Dict:
+        """SSH to each device to get PAI-PL version"""
         try:
             devs = self._get_devices(marker)
         except Exception as e:
@@ -83,40 +196,13 @@ class DeviceManager:
             ip = dev["host"]
             role = dev["role"]
             try:
-                ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(ip, timeout=10)
-                stdin, stdout, stderr = ssh.exec_command("./PAI-PL_USR v")
-                out = stdout.read().decode().strip() or stderr.read().decode().strip()
-                ssh.close()
-                results[role] = out or "<no output>"
+                output = self._ssh_command(ip, "./PAI-PL_USR v")
+                results[role] = output or "<no output>"
             except Exception as e:
                 results[role] = f"SSH Error: {e}"
         return {"pai-pl version": results}
 
-    def _ssh_command(self, host: str, command: str, timeout: int = 30) -> str:
-        """
-        Execute SSH command on remote host
-        """
-        try:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host, timeout=timeout)
-            
-            stdin, stdout, stderr = ssh.exec_command(command)
-            output = stdout.read().decode().strip()
-            error = stderr.read().decode().strip()
-            
-            ssh.close()
-            
-            if error:
-                return f"Command output: {output}\nError: {error}"
-            return output
-            
-        except Exception as e:
-            return f"SSH Error: {str(e)}"
-
-    def data(self, marker: str, new_date: str = None) -> dict:
+    def data(self, marker: str, new_date: str = None) -> Dict:
         """
         Enhanced data command - manages system date and navigation
         If new_date=None just runs 'cd .. && ls' + 'date',
@@ -159,7 +245,7 @@ class DeviceManager:
             
         return {"data_pai_pl": results}
 
-    def mcu(self, marker: str, action: str = "status", config_file: str = "CONFIGURATION") -> dict:
+    def mcu(self, marker: str, action: str = "status", config_file: str = "CONFIGURATION") -> Dict:
         """
         Enhanced MCU management command
         Actions: status, enable, disable, config, restart
@@ -477,3 +563,37 @@ class DeviceManager:
                 }
         
         return {"backup_config": results}
+    
+    def setup_credentials(self):
+        """Setup credentials interactively"""
+        return self.credential_manager.setup_credentials_interactive()
+    
+    def test_connection(self) -> Dict[str, bool]:
+        """Test database and SSH connections"""
+        results = {
+            "database": False,
+            "ssh": False,
+            "keyring": False
+        }
+        
+        # Test keyring
+        try:
+            keyring_test = self.credential_manager.test_keyring_backend()
+            results["keyring"] = keyring_test["keyring_available"]
+        except:
+            pass
+        
+        # Test database
+        if self.conn_str:
+            try:
+                con = pyodbc.connect(self.conn_str)
+                con.close()
+                results["database"] = True
+            except:
+                pass
+        
+        # Test SSH (basic test)
+        if self.ssh_credentials:
+            results["ssh"] = True
+        
+        return results
