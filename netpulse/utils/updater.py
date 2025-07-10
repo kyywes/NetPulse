@@ -666,9 +666,12 @@ class UpdateManager:
     
     def update_progress(self, value: float, status: str):
         """Update progress bar and status"""
-        if self.progress_var and self.status_var:
+        if HAS_GUI and self.progress_var and self.status_var:
             self.progress_var.set(value)
             self.status_var.set(status)
+        else:
+            # Console-based progress indication
+            self.log_message(f"Progress: {value:.1f}% - {status}")
 
 def main():
     """Main function for standalone update check"""
