@@ -20,7 +20,7 @@ except ImportError:
 # --- auto-update GitHub ---
 GITHUB_OWNER    = "kyywes"
 GITHUB_REPO     = "NetPulse"
-CURRENT_VERSION = "1.4.1"
+CURRENT_VERSION = "2.0.0"
 GITHUB_ZIP_MAIN = (
     f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/"
     "archive/refs/heads/main.zip"
