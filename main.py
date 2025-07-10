@@ -1,148 +1,148 @@
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+#!/usr/bin/env python3
+"""
+NetPulse 2.0 - Modern Network Toolkit
+Main application entry point
+"""
 
 import os
 import sys
-import subprocess
-import tempfile
-import shutil
-import zipfile
 import tkinter as tk
-import requests
+import warnings
 
-try:
-    from netpulsegui_modern import ModernNetPulseGUI as NetPulseGUI
-    MODERN_UI = True
-except ImportError:
-    from netpulsegui import NetPulseGUI
-    MODERN_UI = False
+# Suppress deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# --- auto-update GitHub ---
-GITHUB_OWNER    = "kyywes"
-GITHUB_REPO     = "NetPulse"
-CURRENT_VERSION = "2.0.0"
-GITHUB_ZIP_MAIN = (
-    f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/"
-    "archive/refs/heads/main.zip"
-)
+# Add the current directory to Python path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Application version
+__version__ = "2.0.0"
 
-def is_newer_version(remote: str, current: str) -> bool:
-    """Confronto semantico tra due versioni 'x.y.z'."""
-    try:
-        r = tuple(int(x) for x in remote.split("."))
-        c = tuple(int(x) for x in current.split("."))
-        return r > c
-    except:
-        return remote > current
-
-
-def github_auto_update():
-    """
-    Scarica main.zip, legge version.txt e, se rem > cur, sovrascrive
-    e rilancia; altrimenti prosegue.
-    """
-    try:
-        tmp = tempfile.mkdtemp(prefix="np_upd_")
-        zipp = os.path.join(tmp, "main.zip")
-        with requests.get(GITHUB_ZIP_MAIN, stream=True, timeout=10) as r:
-            r.raise_for_status()
-            with open(zipp, "wb") as f:
-                for chunk in r.iter_content(4096):
-                    f.write(chunk)
-
-        with zipfile.ZipFile(zipp, "r") as z:
-            z.extractall(tmp)
-        extracted = next(
-            os.path.join(tmp, d)
-            for d in os.listdir(tmp)
-            if os.path.isdir(os.path.join(tmp, d))
-        )
-
-        vk = os.path.join(extracted, "version.txt")
-        if os.path.isfile(vk):
-            with open(vk, "r") as vf:
-                remote_ver = vf.read().strip()
-        else:
-            remote_ver = CURRENT_VERSION  # fallback
-
-        if is_newer_version(remote_ver, CURRENT_VERSION):
-            app_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-            for name in os.listdir(extracted):
-                src = os.path.join(extracted, name)
-                dst = os.path.join(app_dir, name)
-                if os.path.isdir(dst):
-                    shutil.rmtree(dst, ignore_errors=True)
-                elif os.path.isfile(dst):
-                    os.remove(dst)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
-
-            subprocess.Popen([sys.executable, sys.argv[0]], cwd=app_dir)
-            sys.exit(0)
-    except Exception as e:
-        print(f"[Updater] fallito: {e}")
-
-
-def show_splash():
-    splash = tk.Tk()
-    splash.overrideredirect(True)
-    w, h = 400, 250
-    sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
-    splash.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
-    splash.configure(bg="#1e1e1e")
-
-    tk.Label(splash, text="NetPulse", font=("Segoe UI", 28, "bold"),
-             fg="#4CAF50", bg="#1e1e1e").pack(pady=(50,10))
-    tk.Label(splash, text="Caricamento...", font=("Segoe UI",12),
-             fg="#dcdcdc", bg="#1e1e1e").pack()
-
-    canvas = tk.Canvas(splash, width=200, height=10,
-                       bg="#2a2a2a", highlightthickness=0)
-    bar = canvas.create_rectangle(0,0,0,10, fill="#4CAF50")
-    canvas.pack(pady=20)
-    for i in range(0, 201, 4):
-        splash.after(i*4, lambda x=i: canvas.coords(bar, 0,0,x,10))
-
-    splash.after(1000, splash.destroy)
-    splash.mainloop()
-
-
-def launch_gui():
-    root = tk.Tk()
-    app = NetPulseGUI(root)
+def check_dependencies():
+    """Check if required dependencies are available"""
+    missing_deps = []
     
-    # Display UI version info
-    if MODERN_UI:
-        print("NetPulse Modern UI loaded successfully")
-    else:
-        print("NetPulse Legacy UI loaded (fallback)")
-    
-    root.mainloop()
-
-
-def main():
-    # Use enhanced auto-update system
     try:
-        from updater_enhanced import UpdateManager
+        import requests
+    except ImportError:
+        missing_deps.append("requests")
+    
+    try:
+        import psutil
+    except ImportError:
+        missing_deps.append("psutil")
+    
+    if missing_deps:
+        print(f"Missing dependencies: {', '.join(missing_deps)}")
+        print("Please install them with: pip install -r requirements.txt")
+        return False
+    
+    return True
+
+def check_for_updates():
+    """Check for application updates"""
+    try:
+        from netpulse.utils.updater import UpdateManager
+        
         app_dir = os.path.dirname(os.path.abspath(__file__))
         updater = UpdateManager(app_dir)
         
-        # Check for updates on startup
         if updater.should_check_for_updates():
             print("Checking for updates...")
             updater.check_for_updates(show_ui=False)
             
     except Exception as e:
-        print(f"[Enhanced Updater] Error: {e}")
-        # Fallback to legacy updater if enhanced fails
-        github_auto_update()
-    
-    show_splash()
-    launch_gui()
+        print(f"Update check failed: {e}")
 
+def show_splash():
+    """Show application splash screen"""
+    try:
+        splash = tk.Tk()
+        splash.overrideredirect(True)
+        
+        # Center splash screen
+        w, h = 400, 250
+        sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
+        splash.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+        splash.configure(bg="#0D1117")
+        
+        # Splash content
+        tk.Label(splash, text="NetPulse 2.0", font=("Segoe UI", 28, "bold"),
+                fg="#3B82F6", bg="#0D1117").pack(pady=(50,10))
+        tk.Label(splash, text="Modern Network Toolkit", font=("Segoe UI", 12),
+                fg="#F9FAFB", bg="#0D1117").pack()
+        tk.Label(splash, text="Loading...", font=("Segoe UI", 10),
+                fg="#9CA3AF", bg="#0D1117").pack(pady=(20,0))
+        
+        # Progress bar
+        canvas = tk.Canvas(splash, width=200, height=6,
+                          bg="#161B22", highlightthickness=0)
+        bar = canvas.create_rectangle(0, 0, 0, 6, fill="#3B82F6")
+        canvas.pack(pady=20)
+        
+        # Animate progress bar
+        for i in range(0, 201, 8):
+            splash.after(i*2, lambda x=i: canvas.coords(bar, 0, 0, x, 6))
+        
+        splash.after(1000, splash.destroy)
+        splash.mainloop()
+        
+    except Exception as e:
+        print(f"Could not show splash screen: {e}")
+
+def launch_application():
+    """Launch the main NetPulse application"""
+    try:
+        # Try modern GUI first
+        from netpulse.gui.application import NetPulseApplication
+        
+        root = tk.Tk()
+        app = NetPulseApplication(root)
+        print("NetPulse 2.0 - Modern interface loaded")
+        root.mainloop()
+        
+    except Exception as e:
+        print(f"Modern GUI failed to load: {e}")
+        
+        # Fallback to legacy GUI
+        try:
+            from netpulsegui import NetPulseGUI
+            
+            root = tk.Tk() 
+            app = NetPulseGUI(root)
+            print("NetPulse 2.0 - Legacy interface loaded (fallback)")
+            root.mainloop()
+            
+        except Exception as e2:
+            print(f"Both GUIs failed to load: {e2}")
+            print("Please check your Python tkinter installation")
+            sys.exit(1)
+
+def main():
+    """Main application function"""
+    print(f"Starting NetPulse {__version__}...")
+    
+    # Check dependencies
+    if not check_dependencies():
+        input("Press Enter to exit...")
+        sys.exit(1)
+    
+    # Check for updates
+    check_for_updates()
+    
+    # Show splash screen
+    show_splash()
+    
+    # Launch main application
+    launch_application()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nApplication interrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        input("Press Enter to exit...")
+        sys.exit(1)
