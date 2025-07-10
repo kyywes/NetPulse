@@ -313,11 +313,19 @@ class ModernNetPulseGUI:
         automation_combo = ttk.Combobox(
             control_frame,
             textvariable=self.automation_command_var,
-            values=["Connect Devices", "Backup Config", "PAI-PL Version"],
+            values=["Connect Devices", "Backup Config", "PAI-PL Version", "Data Management", "MCU Control", "Advanced MCU Config"],
             state="readonly",
             width=20
         )
         automation_combo.grid(row=0, column=3, padx=(0, 20))
+        automation_combo.bind("<<ComboboxSelected>>", self._on_automation_command_change)
+        
+        # Additional parameters frame
+        self.automation_params_frame = ttk.Frame(automation_frame)
+        self.automation_params_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # Setup default parameters
+        self._setup_automation_params()
         
         # Buttons
         buttons_frame = ttk.Frame(automation_frame)
