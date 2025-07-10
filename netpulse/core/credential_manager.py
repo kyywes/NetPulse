@@ -45,13 +45,14 @@ class CredentialManager:
             return self._encryption_key
         
         # Try to get key from keyring first
-        try:
-            key_b64 = keyring.get_password(self.keyring_prefix + "encryption", "key")
-            if key_b64:
-                self._encryption_key = base64.urlsafe_b64decode(key_b64.encode())
-                return self._encryption_key
-        except:
-            pass
+        if KEYRING_AVAILABLE:
+            try:
+                key_b64 = keyring.get_password(self.keyring_prefix + "encryption", "key")
+                if key_b64:
+                    self._encryption_key = base64.urlsafe_b64decode(key_b64.encode())
+                    return self._encryption_key
+            except:
+                pass
         
         # Generate new key
         password = (self.app_name + "-encryption-key").encode()
@@ -64,15 +65,65 @@ class CredentialManager:
         )
         key = kdf.derive(password)
         
-        # Save to keyring
-        try:
-            key_b64 = base64.urlsafe_b64encode(key).decode()
-            keyring.set_password(self.keyring_prefix + "encryption", "key", key_b64)
-        except:
-            pass
+        # Save to keyring if available
+        if KEYRING_AVAILABLE:
+            try:
+                key_b64 = base64.urlsafe_b64encode(key).decode()
+                keyring.set_password(self.keyring_prefix + "encryption", "key", key_b64)
+            except:
+                pass
         
         self._encryption_key = key
         return key
+    
+    def _load_file_credentials(self):
+        """Load credentials from encrypted file"""
+        try:
+            if os.path.exists(self.cred_file):
+                with open(self.cred_file, 'r') as f:
+                    encrypted_data = f.read()
+                    decrypted_data = self._decrypt_data(encrypted_data)
+                    self._file_credentials = json.loads(decrypted_data)
+        except Exception as e:
+            print(f"Could not load file credentials: {e}")
+            self._file_credentials = {}
+    
+    def _save_file_credentials(self):
+        """Save credentials to encrypted file"""
+        try:
+            data_json = json.dumps(self._file_credentials)
+            encrypted_data = self._encrypt_data(data_json)
+            with open(self.cred_file, 'w') as f:
+                f.write(encrypted_data)
+        except Exception as e:
+            print(f"Could not save file credentials: {e}")
+    
+    def _set_credential(self, service: str, key: str, value: str):
+        """Set credential using available backend"""
+        if KEYRING_AVAILABLE:
+            try:
+                keyring.set_password(f"{self.keyring_prefix}{service}", key, value)
+                return True
+            except Exception as e:
+                print(f"Keyring set failed: {e}")
+        
+        # Fallback to file storage
+        if service not in self._file_credentials:
+            self._file_credentials[service] = {}
+        self._file_credentials[service][key] = value
+        self._save_file_credentials()
+        return True
+    
+    def _get_credential(self, service: str, key: str) -> Optional[str]:
+        """Get credential using available backend"""
+        if KEYRING_AVAILABLE:
+            try:
+                return keyring.get_password(f"{self.keyring_prefix}{service}", key)
+            except Exception as e:
+                print(f"Keyring get failed: {e}")
+        
+        # Fallback to file storage
+        return self._file_credentials.get(service, {}).get(key)
     
     def _encrypt_data(self, data: str) -> str:
         """Encrypt data using Fernet encryption"""
