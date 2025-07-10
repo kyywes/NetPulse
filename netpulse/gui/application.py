@@ -645,7 +645,7 @@ Your credentials will be stored securely and encrypted."""
         self.current_thread.start()
     
     def _run_basic_command(self, command: str, params: str):
-        """Run basic command in thread"""
+        """Run basic command in thread with timeout and stop functionality"""
         start_time = time.time()
         
         try:
@@ -667,14 +667,24 @@ Your credentials will be stored securely and encrypted."""
             else:
                 result = {"error": "Unknown command"}
             
+            # Check if command was stopped
+            if self.stop_requested:
+                result = {"error": "Command stopped by user", "success": False}
+            
             execution_time = time.time() - start_time
+            
+            # Check for timeout
+            if execution_time > self.command_timeout:
+                result = {"error": f"Command timed out after {self.command_timeout}s", "success": False}
+                self.network_tools.stop_all_scans()
             
             # Update UI in main thread
             self.root.after(0, self._display_basic_result, result, execution_time)
             
-            # Add to history
-            self.config.add_to_history(command, params, execution_time, result.get('success', False), 
-                                     self.network_tools.format_output(result))
+            # Add to history (if not stopped)
+            if not self.stop_requested:
+                self.config.add_to_history(command, params, execution_time, result.get('success', False), 
+                                         self.network_tools.format_output(result))
             
         except Exception as e:
             error_result = {"error": str(e), "success": False}
