@@ -60,6 +60,26 @@ class NetPulseApplication:
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
         self._setup_keyboard_shortcuts()
     
+    def _setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts for all tabs"""
+        # Bind Enter key to execute command based on current tab
+        self.root.bind('<Return>', self._on_enter_pressed)
+        self.root.bind('<Control-Return>', self._on_enter_pressed)
+        self.root.bind('<F5>', self._on_enter_pressed)
+        self.root.bind('<Escape>', lambda e: self._stop_command())
+    
+    def _on_enter_pressed(self, event=None):
+        """Handle Enter key press - execute command for current tab"""
+        current_tab = self.notebook.index(self.notebook.select())
+        
+        if current_tab == 0:  # Basic Tools
+            self._execute_basic_command()
+        elif current_tab == 1:  # Advanced Tools
+            self._execute_advanced_command()
+        elif current_tab == 2:  # Automation
+            self._execute_automation_command()
+        # History and Favorites tabs don't need execute
+    
     def _setup_main_window(self):
         """Setup main window properties"""
         apply_modern_theme(self.root)
