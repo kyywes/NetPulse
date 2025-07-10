@@ -262,7 +262,7 @@ class DeviceManager:
         if not mcu_devices:
             return {"error": f"No MCU/Controller devices found for PL {marker}"}
 
-        results = {}
+        results = {"marker": marker, "devices": {}}
         
         for device in mcu_devices:
             host = device["host"]
@@ -270,119 +270,47 @@ class DeviceManager:
             
             try:
                 if action.lower() == "status":
-                    # Get MCU status
-                    status_cmd = f"cat {config_file} | grep -i mcu"
-                    status_output = self._ssh_command(host, status_cmd)
+                    # Get full CONFIGURAZIONE content
+                    config_content = self._ssh_command(host, f"cat {config_file}")
                     
-                    # Get additional system info
-                    system_info = self._ssh_command(host, "ps aux | grep -i mcu")
+                    # Extract MCU-related settings
+                    mcu_status = self._ssh_command(host, f"grep -i 'mcu=' {config_file}")
+                    
+                    # Get system status
+                    system_info = self._ssh_command(host, "ps aux | grep -i mcu | head -5")
                     uptime = self._ssh_command(host, "uptime")
                     
-                    results[role] = {
+                    # Get kilometric parameter from database
+                    kilometric_info = self._get_kilometric_info(marker)
+                    
+                    results["devices"][role] = {
                         "action": "status",
-                        "config_status": status_output,
+                        "host": host,
+                        "configurazione_content": config_content,
+                        "mcu_parameter": mcu_status,
                         "system_processes": system_info,
                         "uptime": uptime,
+                        "kilometric_info": kilometric_info,
                         "timestamp": self._ssh_command(host, "date")
                     }
                 
-                elif action.lower() == "enable":
-                    # Enable MCU
-                    backup_cmd = f"cp {config_file} {config_file}.backup.$(date +%Y%m%d_%H%M%S)"
-                    backup_result = self._ssh_command(host, backup_cmd)
-                    
-                    # Enable MCU in configuration
-                    enable_cmd = f"sed -i 's/MCU_ENABLE=.*$/MCU_ENABLE=true/g' {config_file}"
-                    enable_result = self._ssh_command(host, enable_cmd)
-                    
-                    # Verify change
-                    verify_cmd = f"grep MCU_ENABLE {config_file}"
-                    verify_result = self._ssh_command(host, verify_cmd)
-                    
-                    results[role] = {
-                        "action": "enable",
-                        "backup": backup_result,
-                        "enable_result": enable_result,
-                        "verification": verify_result,
-                        "timestamp": self._ssh_command(host, "date")
-                    }
-                
-                elif action.lower() == "disable":
-                    # Disable MCU
-                    backup_cmd = f"cp {config_file} {config_file}.backup.$(date +%Y%m%d_%H%M%S)"
-                    backup_result = self._ssh_command(host, backup_cmd)
-                    
-                    # Disable MCU in configuration
-                    disable_cmd = f"sed -i 's/MCU_ENABLE=.*$/MCU_ENABLE=false/g' {config_file}"
-                    disable_result = self._ssh_command(host, disable_cmd)
-                    
-                    # Verify change
-                    verify_cmd = f"grep MCU_ENABLE {config_file}"
-                    verify_result = self._ssh_command(host, verify_cmd)
-                    
-                    results[role] = {
-                        "action": "disable",
-                        "backup": backup_result,
-                        "disable_result": disable_result,
-                        "verification": verify_result,
-                        "timestamp": self._ssh_command(host, "date")
-                    }
-                
-                elif action.lower() == "config":
-                    # View/edit configuration
-                    config_content = self._ssh_command(host, f"cat {config_file}")
-                    mcu_config = self._ssh_command(host, f"grep -A 5 -B 5 -i mcu {config_file}")
-                    
-                    results[role] = {
-                        "action": "config",
-                        "full_config": config_content,
-                        "mcu_section": mcu_config,
-                        "file_info": self._ssh_command(host, f"ls -la {config_file}"),
-                        "timestamp": self._ssh_command(host, "date")
-                    }
-                
-                elif action.lower() == "restart":
-                    # Restart MCU service
-                    status_before = self._ssh_command(host, "ps aux | grep -i mcu")
-                    
-                    # Try different restart methods
-                    restart_commands = [
-                        "systemctl restart mcu",
-                        "service mcu restart", 
-                        "/etc/init.d/mcu restart",
-                        "killall -HUP mcu"
-                    ]
-                    
-                    restart_results = []
-                    for cmd in restart_commands:
-                        result = self._ssh_command(host, cmd)
-                        restart_results.append(f"{cmd}: {result}")
-                        if "error" not in result.lower():
-                            break
-                    
-                    # Wait and check status
-                    time.sleep(2)
-                    status_after = self._ssh_command(host, "ps aux | grep -i mcu")
-                    
-                    results[role] = {
-                        "action": "restart",
-                        "status_before": status_before,
-                        "restart_attempts": restart_results,
-                        "status_after": status_after,
-                        "timestamp": self._ssh_command(host, "date")
-                    }
+                elif action.lower() == "change_mcu_value":
+                    # This will be handled by change_mcu_value method
+                    return {"error": "Use change_mcu_value method to change MCU values"}
                 
                 else:
-                    results[role] = {
-                        "error": f"Unknown action: {action}. Available: status, enable, disable, config, restart"
+                    results["devices"][role] = {
+                        "action": action,
+                        "error": f"Action '{action}' not supported. Use 'status' or 'change_mcu_value'"
                     }
-                    
+                
             except Exception as e:
-                results[role] = {
-                    "error": f"MCU operation failed: {str(e)}"
+                results["devices"][role] = {
+                    "action": action,
+                    "error": str(e)
                 }
         
-        return {"mcu_management": results}
+        return results
 
     def change_mcu_value(self, marker: str, new_mcu_value: str) -> dict:
         """Change the mcu= value in CONFIGURAZIONE file"""
