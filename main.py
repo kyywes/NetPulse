@@ -6,7 +6,6 @@ Main application entry point
 
 import os
 import sys
-import tkinter as tk
 import warnings
 
 # Suppress deprecation warnings
@@ -17,6 +16,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Application version
 __version__ = "2.0.0"
+
+# Check if GUI is available
+try:
+    import tkinter as tk
+    HAS_GUI = True
+except ImportError:
+    HAS_GUI = False
+    print("⚠️  GUI not available - NetPulse will run in headless mode")
 
 def check_dependencies():
     """Check if required dependencies are available"""
