@@ -127,9 +127,36 @@ class NetPulseGUI:
             elif cmd == "connect devices":
                 result = self.automate.connect_devices(param)
             elif cmd == "backup config":
-                result = self.automate.backup_config(param)
+                # Enhanced backup with type selection (default: running)
+                backup_type = "running"  # Can be enhanced with UI selection
+                result = self.automate.backup_config(param, backup_type)
             elif cmd == "pai-pl version":
                 result = self.automate.show_pai_version(param)
+            elif cmd == "data management":
+                # Parse param for marker and optional date
+                parts = param.split("|") if "|" in param else [param]
+                marker = parts[0].strip()
+                new_date = parts[1].strip() if len(parts) > 1 else None
+                result = self.automate.data(marker, new_date)
+            elif cmd == "mcu control":
+                # Parse param for marker, action, and config file
+                parts = param.split("|") if "|" in param else [param]
+                marker = parts[0].strip()
+                action = parts[1].strip() if len(parts) > 1 else "status"
+                config_file = parts[2].strip() if len(parts) > 2 else "CONFIGURATION"
+                result = self.automate.mcu(marker, action, config_file)
+            elif cmd == "advanced mcu config":
+                # Parse param for marker and config updates
+                parts = param.split("|") if "|" in param else [param]
+                marker = parts[0].strip()
+                config_updates = None
+                if len(parts) > 1:
+                    try:
+                        import json
+                        config_updates = json.loads(parts[1].strip())
+                    except:
+                        pass
+                result = self.automate.advanced_mcu_config(marker, config_updates)
             else:
                 result = {"error": "Comando non valido"}
 
