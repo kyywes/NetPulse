@@ -384,6 +384,39 @@ class DeviceManager:
         
         return {"mcu_management": results}
 
+    def _get_kilometric_info(self, marker: str) -> dict:
+        """Get kilometric information from database"""
+        try:
+            query = """
+            SELECT TOP 1 
+                Codice_Stazione,
+                Km_Inizio,
+                Km_Fine,
+                Descrizione
+            FROM Stazioni 
+            WHERE Codice_Stazione LIKE ?
+            """
+            
+            if self.conn_str:
+                with pyodbc.connect(self.conn_str) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(query, (f"%{marker}%",))
+                    row = cursor.fetchone()
+                    
+                    if row:
+                        return {
+                            "code": row[0],
+                            "km_start": row[1],
+                            "km_end": row[2],
+                            "description": row[3],
+                            "kilometric_parameter": f"{row[1]}+{row[2]}" if row[1] and row[2] else "Unknown"
+                        }
+            
+            return {"error": "No kilometric information found"}
+            
+        except Exception as e:
+            return {"error": f"Database query failed: {str(e)}"}
+
     def advanced_mcu_config(self, marker: str, config_updates: dict = None) -> dict:
         """
         Advanced MCU configuration management
