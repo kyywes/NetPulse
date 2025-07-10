@@ -142,8 +142,15 @@ def launch_application():
             sys.exit(1)
 
 def main():
-    """Main application function"""
+    """Main function to start NetPulse application"""
     print(f"Starting NetPulse {__version__}...")
+    
+    if not HAS_GUI:
+        print("⚠️  GUI not available - NetPulse will run in headless mode")
+        print("Core functionality available via Python import:")
+        print("  from netpulse.core import NetworkTools, ConfigManager")
+        print("  from netpulse.utils import UpdateManager")
+        return
     
     # Check dependencies
     if not check_dependencies():
