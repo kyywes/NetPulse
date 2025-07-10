@@ -369,3 +369,111 @@ class NetPulseAutomate:
                 }
         
         return {"advanced_mcu_config": results}
+
+    def backup_config(self, marker: str, config_type: str = "running") -> dict:
+        """
+        Enhanced configuration backup with multiple options
+        config_type: running, startup, full, mcu
+        """
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
+
+        results = {}
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        
+        for device in devs:
+            host = device["host"]
+            role = device["role"]
+            
+            try:
+                backup_results = {}
+                
+                if config_type == "running" or config_type == "full":
+                    # Backup running configuration
+                    running_cmd = "show running-config"
+                    running_backup = self._ssh_command(host, running_cmd)
+                    
+                    # Save to file
+                    save_cmd = f"echo '{running_backup}' > /tmp/running-config-{timestamp}.txt"
+                    save_result = self._ssh_command(host, save_cmd)
+                    
+                    backup_results["running_config"] = {
+                        "content": running_backup,
+                        "saved_to": f"/tmp/running-config-{timestamp}.txt",
+                        "save_result": save_result
+                    }
+                
+                if config_type == "startup" or config_type == "full":
+                    # Backup startup configuration
+                    startup_cmd = "show startup-config"
+                    startup_backup = self._ssh_command(host, startup_cmd)
+                    
+                    # Save to file
+                    save_cmd = f"echo '{startup_backup}' > /tmp/startup-config-{timestamp}.txt"
+                    save_result = self._ssh_command(host, save_cmd)
+                    
+                    backup_results["startup_config"] = {
+                        "content": startup_backup,
+                        "saved_to": f"/tmp/startup-config-{timestamp}.txt",
+                        "save_result": save_result
+                    }
+                
+                if config_type == "mcu" or config_type == "full":
+                    # Backup MCU configuration
+                    mcu_config = self._ssh_command(host, "cat CONFIGURATION")
+                    
+                    # Save MCU config
+                    save_cmd = f"cp CONFIGURATION /tmp/CONFIGURATION-{timestamp}.backup"
+                    save_result = self._ssh_command(host, save_cmd)
+                    
+                    backup_results["mcu_config"] = {
+                        "content": mcu_config,
+                        "saved_to": f"/tmp/CONFIGURATION-{timestamp}.backup", 
+                        "save_result": save_result
+                    }
+                
+                if config_type == "full":
+                    # Additional system files
+                    system_files = [
+                        "/etc/network/interfaces",
+                        "/etc/hosts",
+                        "/etc/resolv.conf",
+                        "/proc/version",
+                        "/proc/meminfo"
+                    ]
+                    
+                    system_backup = {}
+                    for file_path in system_files:
+                        content = self._ssh_command(host, f"cat {file_path}")
+                        backup_file = f"/tmp/{file_path.replace('/', '_')}-{timestamp}.backup"
+                        save_cmd = f"cp {file_path} {backup_file}"
+                        save_result = self._ssh_command(host, save_cmd)
+                        
+                        system_backup[file_path] = {
+                            "content": content,
+                            "backup_file": backup_file,
+                            "save_result": save_result
+                        }
+                    
+                    backup_results["system_files"] = system_backup
+                
+                # Create archive of all backups
+                archive_cmd = f"tar -czf /tmp/full-backup-{role}-{timestamp}.tar.gz /tmp/*{timestamp}*"
+                archive_result = self._ssh_command(host, archive_cmd)
+                
+                backup_results["archive"] = {
+                    "archive_file": f"/tmp/full-backup-{role}-{timestamp}.tar.gz",
+                    "archive_result": archive_result,
+                    "timestamp": timestamp
+                }
+                
+                results[role] = backup_results
+                
+            except Exception as e:
+                results[role] = {
+                    "error": f"Backup failed: {str(e)}"
+                }
+        
+        return {"backup_config": results}
