@@ -292,8 +292,19 @@ class UpdateManager:
         if not HAS_GUI:
             self.log_message("GUI not available - showing update progress in console")
             return
+        
+        # Create a root window if none exists
+        try:
+            import tkinter as tk
+            root = tk._default_root
+            if root is None:
+                root = tk.Tk()
+                root.withdraw()  # Hide the root window
+        except:
+            print("Could not create progress window - GUI not available")
+            return
             
-        self.update_window = tk.Toplevel()
+        self.update_window = tk.Toplevel(root)
         self.update_window.title("Updating NetPulse")
         self.update_window.geometry("500x300")
         self.update_window.configure(bg='#0D1117')
