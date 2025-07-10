@@ -28,6 +28,16 @@ class CredentialManager:
         self.app_name = app_name
         self.keyring_prefix = f"{app_name}-"
         self._encryption_key = None
+        
+        # Setup credential storage directory
+        self.cred_dir = os.path.expanduser(f"~/.{app_name}")
+        os.makedirs(self.cred_dir, exist_ok=True)
+        self.cred_file = os.path.join(self.cred_dir, "credentials.enc")
+        
+        # Load file-based credentials if keyring is not available
+        self._file_credentials = {}
+        if not KEYRING_AVAILABLE:
+            self._load_file_credentials()
     
     def _get_encryption_key(self) -> bytes:
         """Get or create encryption key for local storage"""
