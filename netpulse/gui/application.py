@@ -58,6 +58,7 @@ class NetPulseApplication:
         
         # Bind events
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self._setup_keyboard_shortcuts()
     
     def _setup_main_window(self):
         """Setup main window properties"""
