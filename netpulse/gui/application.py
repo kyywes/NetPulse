@@ -889,8 +889,14 @@ Your credentials will be stored securely and encrypted."""
                 result = self.automate.data(marker, new_date)
             elif command == "mcu control":
                 action = getattr(self, 'mcu_action_var', tk.StringVar(value="status")).get()
-                config_file = getattr(self, 'mcu_config_file_var', tk.StringVar(value="CONFIGURATION")).get()
-                result = self.automate.mcu(marker, action, config_file)
+                if action == "change_mcu_value":
+                    new_value = getattr(self, 'mcu_new_value_var', tk.StringVar()).get().strip()
+                    if not new_value:
+                        result = {"error": "New MCU value is required for change_mcu_value action"}
+                    else:
+                        result = self.automate.change_mcu_value(marker, new_value)
+                else:
+                    result = self.automate.mcu(marker, action)
             elif command == "advanced mcu config":
                 import json
                 try:
