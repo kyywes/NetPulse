@@ -47,18 +47,13 @@ def check_dependencies():
     return True
 
 def check_for_updates():
-    """Check for updates (disabled by default)"""
+    """Check for updates from GitHub repository"""
     try:
         app_dir = os.path.dirname(os.path.abspath(__file__))
         
         # Import here to avoid circular imports
         from netpulse.utils.updater import UpdateManager
         updater = UpdateManager(app_dir)
-        
-        # Skip automatic update check to prevent startup errors
-        # Users can manually check for updates through the GUI menu
-        print("Update check disabled - use GUI menu to check for updates manually")
-        return
         
         if updater.should_check_for_updates():
             print("Checking for updates...")
