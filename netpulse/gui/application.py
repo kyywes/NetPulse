@@ -69,7 +69,9 @@ class NetPulseApplication:
         
         # Set window icon (if available)
         try:
-            self.root.iconbitmap(os.path.join(os.path.dirname(__file__), 'icon.ico'))
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'icons', 'netpulse.ico')
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
         except:
             pass
     
