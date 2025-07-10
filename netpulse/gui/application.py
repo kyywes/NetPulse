@@ -45,6 +45,8 @@ class NetPulseApplication:
         # UI State
         self.current_thread = None
         self.current_task = None
+        self.stop_requested = False
+        self.command_timeout = 300  # 5 minutes default timeout
         
         # Setup UI
         self._setup_main_window()
