@@ -1221,6 +1221,34 @@ Tab Navigation:
         geometry = self.root.geometry()
         self.config.set_setting('window_geometry', geometry)
     
+    def _stop_command(self):
+        """Stop the currently running command"""
+        if self.current_thread and self.current_thread.is_alive():
+            self.stop_requested = True
+            self.network_tools.stop_all_scans()
+            
+            # Update UI
+            self.status_var.set("Stopping command...")
+            self.progress.stop()
+            
+            # Wait a moment for graceful shutdown
+            self.root.after(1000, self._force_stop_command)
+            
+            self._append_colored_text(self.basic_output_text, "\n[STOPPED] Command execution stopped by user\n", "warning")
+            self.basic_output_text.see(tk.END)
+        else:
+            self.status_var.set("No command running")
+    
+    def _force_stop_command(self):
+        """Force stop if command doesn't respond"""
+        if self.current_thread and self.current_thread.is_alive():
+            self.status_var.set("Command stopped (forced)")
+            self.progress.stop()
+        else:
+            self.status_var.set("Command stopped")
+            self.progress.stop()
+        self.stop_requested = False
+    
     def _on_closing(self):
         """Handle window closing"""
         self._save_window_state()
