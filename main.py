@@ -49,11 +49,6 @@ def check_dependencies():
 def check_for_updates():
     """Check for updates from GitHub repository"""
     try:
-        # Temporarily disable update check until repository has releases
-        # This prevents the 404 error on startup
-        print("Update check disabled until repository releases are created")
-        return
-        
         app_dir = os.path.dirname(os.path.abspath(__file__))
         
         # Import here to avoid circular imports
