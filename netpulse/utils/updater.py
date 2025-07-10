@@ -567,10 +567,18 @@ class UpdateManager:
     
     def handle_update_failure(self, error: str):
         """Handle update failure"""
+        if not HAS_GUI:
+            self.log_message(f"Update failed: {error}")
+            print(f"Update failed: {error}")
+            return
+            
         self.update_window.after(0, self._show_failure_dialog, error)
     
     def _show_failure_dialog(self, error: str):
         """Show failure dialog (thread-safe)"""
+        if not HAS_GUI:
+            return
+            
         if self.update_window:
             self.update_window.destroy()
         
