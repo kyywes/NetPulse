@@ -384,6 +384,55 @@ class DeviceManager:
         
         return {"mcu_management": results}
 
+    def change_mcu_value(self, marker: str, new_mcu_value: str) -> dict:
+        """Change the mcu= value in CONFIGURAZIONE file"""
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
+
+        # Look for MCU devices
+        mcu_devices = [d for d in devs if any(keyword in d["role"].lower() 
+                                            for keyword in ["cpu b", "mcu", "controller"])]
+        
+        if not mcu_devices:
+            return {"error": f"No MCU/Controller devices found for PL {marker}"}
+
+        results = {"marker": marker, "new_value": new_mcu_value, "devices": {}}
+        
+        for device in mcu_devices:
+            host = device["host"]
+            role = device["role"]
+            
+            try:
+                # Create backup first
+                backup_cmd = f"cp CONFIGURAZIONE CONFIGURAZIONE.backup.$(date +%Y%m%d_%H%M%S)"
+                backup_result = self._ssh_command(host, backup_cmd)
+                
+                # Change mcu= value
+                change_cmd = f"sed -i 's/mcu=.*$/mcu={new_mcu_value}/g' CONFIGURAZIONE"
+                change_result = self._ssh_command(host, change_cmd)
+                
+                # Verify change
+                verify_cmd = "grep 'mcu=' CONFIGURAZIONE"
+                verify_result = self._ssh_command(host, verify_cmd)
+                
+                results["devices"][role] = {
+                    "action": "change_mcu_value",
+                    "host": host,
+                    "backup_result": backup_result,
+                    "change_result": change_result,
+                    "verification": verify_result,
+                    "timestamp": self._ssh_command(host, "date")
+                }
+                
+            except Exception as e:
+                results["devices"][role] = {
+                    "action": "change_mcu_value",
+                    "error": str(e)
+                }
+        
+        return results
     def _get_kilometric_info(self, marker: str) -> dict:
         """Get kilometric information from database"""
         try:
