@@ -540,10 +540,18 @@ class UpdateManager:
     
     def show_update_complete(self):
         """Show update completion dialog"""
+        if not HAS_GUI:
+            self.log_message("Update complete - restart required")
+            print("Update complete! Please restart NetPulse.")
+            return
+            
         self.update_window.after(0, self._show_completion_dialog)
     
     def _show_completion_dialog(self):
         """Show completion dialog (thread-safe)"""
+        if not HAS_GUI:
+            return
+            
         if self.update_window:
             self.update_window.destroy()
         
