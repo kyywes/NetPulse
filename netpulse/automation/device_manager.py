@@ -245,10 +245,10 @@ class DeviceManager:
             
         return {"data_pai_pl": results}
 
-    def mcu(self, marker: str, action: str = "status", config_file: str = "CONFIGURATION") -> Dict:
+    def mcu(self, marker: str, action: str = "status", config_file: str = "CONFIGURAZIONE") -> Dict:
         """
-        Enhanced MCU management command
-        Actions: status, enable, disable, config, restart
+        Enhanced MCU management command - focused on CONFIGURAZIONE status and mcu= parameter
+        Actions: status, change_mcu_value
         """
         try:
             devs = self._get_devices(marker)
