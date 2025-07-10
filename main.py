@@ -10,7 +10,12 @@ import zipfile
 import tkinter as tk
 import requests
 
-from netpulsegui import NetPulseGUI
+try:
+    from netpulsegui_modern import ModernNetPulseGUI as NetPulseGUI
+    MODERN_UI = True
+except ImportError:
+    from netpulsegui import NetPulseGUI
+    MODERN_UI = False
 
 # --- auto-update GitHub ---
 GITHUB_OWNER    = "kyywes"
