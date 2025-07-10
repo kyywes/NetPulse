@@ -146,7 +146,15 @@ class UpdateManager:
             if self.config.get('github_token'):
                 headers['Authorization'] = f"token {self.config['github_token']}"
             
-            response = requests.get(self.github_api_url, headers=headers, timeout=30)
+            response = requests.get(self.github_api_url, headers=headers, timeout=10)
+            
+            # Handle 404 specifically (no releases yet)
+            if response.status_code == 404:
+                self.log_message("No releases found in repository - this is normal for new repositories")
+                if show_ui and HAS_GUI:
+                    print("Repository exists but no releases published yet.")
+                return None
+            
             response.raise_for_status()
             
             release_info = response.json()
