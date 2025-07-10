@@ -204,8 +204,19 @@ class UpdateManager:
             print(f"Update available: {update_info['version']}")
             print(f"Description: {update_info.get('description', 'No description')}")
             return
+        
+        # Create a root window if none exists
+        try:
+            import tkinter as tk
+            root = tk._default_root
+            if root is None:
+                root = tk.Tk()
+                root.withdraw()  # Hide the root window
+        except:
+            print("Could not create update dialog - GUI not available")
+            return
             
-        dialog = tk.Toplevel()
+        dialog = tk.Toplevel(root)
         dialog.title("Update Available")
         dialog.geometry("500x400")
         dialog.configure(bg='#0D1117')
