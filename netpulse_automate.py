@@ -94,8 +94,278 @@ class NetPulseAutomate:
                 results[role] = f"SSH Error: {e}"
         return {"pai-pl version": results}
 
-    def backup_config(self, marker: str) -> dict:
+    def _ssh_command(self, host: str, command: str, timeout: int = 30) -> str:
         """
-        Stub placeholder: qui implementerei show running-config via SSH.
+        Execute SSH command on remote host
         """
-        return {"backup config": "Non ancora implementato"}
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(host, timeout=timeout)
+            
+            stdin, stdout, stderr = ssh.exec_command(command)
+            output = stdout.read().decode().strip()
+            error = stderr.read().decode().strip()
+            
+            ssh.close()
+            
+            if error:
+                return f"Command output: {output}\nError: {error}"
+            return output
+            
+        except Exception as e:
+            return f"SSH Error: {str(e)}"
+
+    def data(self, marker: str, new_date: str = None) -> dict:
+        """
+        Enhanced data command - manages system date and navigation
+        If new_date=None just runs 'cd .. && ls' + 'date',
+        otherwise it adds 'date -s new_date'.
+        """
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
+
+        cpu = [d for d in devs if d["role"].lower() == "cpu b"]
+        if not cpu:
+            return {"error": f"No CPU B for PL {marker}"}
+
+        results = {}
+        for d in cpu:
+            h = d["host"]
+            
+            # Execute commands
+            nav = self._ssh_command(h, "cd .. && ls")
+            cur = self._ssh_command(h, "date")
+            seto = ""
+            
+            if new_date:
+                # Validate date format before setting
+                try:
+                    # Basic date validation - you can enhance this
+                    if len(new_date.split()) >= 2:  # Basic check for date format
+                        seto = self._ssh_command(h, f'date -s "{new_date}"')
+                    else:
+                        seto = "Error: Invalid date format. Use format like 'YYYY-MM-DD HH:MM:SS'"
+                except:
+                    seto = "Error: Failed to parse date format"
+            
+            results[d["role"]] = {
+                "navigation": nav,
+                "current_date": cur,
+                "set_date": seto
+            }
+            
+        return {"data_pai_pl": results}
+
+    def mcu(self, marker: str, action: str = "status", config_file: str = "CONFIGURATION") -> dict:
+        """
+        Enhanced MCU management command
+        Actions: status, enable, disable, config, restart
+        """
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
+
+        # Look for MCU devices (CPU B or specific MCU devices)
+        mcu_devices = [d for d in devs if any(keyword in d["role"].lower() 
+                                            for keyword in ["cpu b", "mcu", "controller"])]
+        
+        if not mcu_devices:
+            return {"error": f"No MCU/Controller devices found for PL {marker}"}
+
+        results = {}
+        
+        for device in mcu_devices:
+            host = device["host"]
+            role = device["role"]
+            
+            try:
+                if action.lower() == "status":
+                    # Get MCU status
+                    status_cmd = f"cat {config_file} | grep -i mcu"
+                    status_output = self._ssh_command(host, status_cmd)
+                    
+                    # Get additional system info
+                    system_info = self._ssh_command(host, "ps aux | grep -i mcu")
+                    uptime = self._ssh_command(host, "uptime")
+                    
+                    results[role] = {
+                        "action": "status",
+                        "config_status": status_output,
+                        "system_processes": system_info,
+                        "uptime": uptime,
+                        "timestamp": self._ssh_command(host, "date")
+                    }
+                
+                elif action.lower() == "enable":
+                    # Enable MCU
+                    backup_cmd = f"cp {config_file} {config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+                    backup_result = self._ssh_command(host, backup_cmd)
+                    
+                    # Enable MCU in configuration
+                    enable_cmd = f"sed -i 's/MCU_ENABLE=.*$/MCU_ENABLE=true/g' {config_file}"
+                    enable_result = self._ssh_command(host, enable_cmd)
+                    
+                    # Verify change
+                    verify_cmd = f"grep MCU_ENABLE {config_file}"
+                    verify_result = self._ssh_command(host, verify_cmd)
+                    
+                    results[role] = {
+                        "action": "enable",
+                        "backup": backup_result,
+                        "enable_result": enable_result,
+                        "verification": verify_result,
+                        "timestamp": self._ssh_command(host, "date")
+                    }
+                
+                elif action.lower() == "disable":
+                    # Disable MCU
+                    backup_cmd = f"cp {config_file} {config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+                    backup_result = self._ssh_command(host, backup_cmd)
+                    
+                    # Disable MCU in configuration
+                    disable_cmd = f"sed -i 's/MCU_ENABLE=.*$/MCU_ENABLE=false/g' {config_file}"
+                    disable_result = self._ssh_command(host, disable_cmd)
+                    
+                    # Verify change
+                    verify_cmd = f"grep MCU_ENABLE {config_file}"
+                    verify_result = self._ssh_command(host, verify_cmd)
+                    
+                    results[role] = {
+                        "action": "disable",
+                        "backup": backup_result,
+                        "disable_result": disable_result,
+                        "verification": verify_result,
+                        "timestamp": self._ssh_command(host, "date")
+                    }
+                
+                elif action.lower() == "config":
+                    # View/edit configuration
+                    config_content = self._ssh_command(host, f"cat {config_file}")
+                    mcu_config = self._ssh_command(host, f"grep -A 5 -B 5 -i mcu {config_file}")
+                    
+                    results[role] = {
+                        "action": "config",
+                        "full_config": config_content,
+                        "mcu_section": mcu_config,
+                        "file_info": self._ssh_command(host, f"ls -la {config_file}"),
+                        "timestamp": self._ssh_command(host, "date")
+                    }
+                
+                elif action.lower() == "restart":
+                    # Restart MCU service
+                    status_before = self._ssh_command(host, "ps aux | grep -i mcu")
+                    
+                    # Try different restart methods
+                    restart_commands = [
+                        "systemctl restart mcu",
+                        "service mcu restart", 
+                        "/etc/init.d/mcu restart",
+                        "killall -HUP mcu"
+                    ]
+                    
+                    restart_results = []
+                    for cmd in restart_commands:
+                        result = self._ssh_command(host, cmd)
+                        restart_results.append(f"{cmd}: {result}")
+                        if "error" not in result.lower():
+                            break
+                    
+                    # Wait and check status
+                    time.sleep(2)
+                    status_after = self._ssh_command(host, "ps aux | grep -i mcu")
+                    
+                    results[role] = {
+                        "action": "restart",
+                        "status_before": status_before,
+                        "restart_attempts": restart_results,
+                        "status_after": status_after,
+                        "timestamp": self._ssh_command(host, "date")
+                    }
+                
+                else:
+                    results[role] = {
+                        "error": f"Unknown action: {action}. Available: status, enable, disable, config, restart"
+                    }
+                    
+            except Exception as e:
+                results[role] = {
+                    "error": f"MCU operation failed: {str(e)}"
+                }
+        
+        return {"mcu_management": results}
+
+    def advanced_mcu_config(self, marker: str, config_updates: dict = None) -> dict:
+        """
+        Advanced MCU configuration management
+        config_updates: dict of configuration key-value pairs to update
+        """
+        try:
+            devs = self._get_devices(marker)
+        except Exception as e:
+            return {"error": str(e)}
+
+        mcu_devices = [d for d in devs if any(keyword in d["role"].lower() 
+                                            for keyword in ["cpu b", "mcu", "controller"])]
+        
+        if not mcu_devices:
+            return {"error": f"No MCU/Controller devices found for PL {marker}"}
+
+        results = {}
+        
+        for device in mcu_devices:
+            host = device["host"]
+            role = device["role"]
+            
+            try:
+                # Create timestamped backup
+                backup_cmd = f"cp CONFIGURATION CONFIGURATION.backup.$(date +%Y%m%d_%H%M%S)"
+                backup_result = self._ssh_command(host, backup_cmd)
+                
+                # Read current configuration
+                current_config = self._ssh_command(host, "cat CONFIGURATION")
+                
+                updates_applied = []
+                
+                if config_updates:
+                    for key, value in config_updates.items():
+                        # Update configuration
+                        update_cmd = f"sed -i 's/^{key}=.*$/{key}={value}/g' CONFIGURATION"
+                        update_result = self._ssh_command(host, update_cmd)
+                        
+                        # Verify update
+                        verify_cmd = f"grep '^{key}=' CONFIGURATION"
+                        verify_result = self._ssh_command(host, verify_cmd)
+                        
+                        updates_applied.append({
+                            "key": key,
+                            "value": value,
+                            "update_result": update_result,
+                            "verification": verify_result
+                        })
+                
+                # Get updated configuration
+                updated_config = self._ssh_command(host, "cat CONFIGURATION")
+                
+                # Get configuration diff
+                diff_cmd = "diff CONFIGURATION.backup.$(ls -t CONFIGURATION.backup.* | head -1 | cut -d'.' -f3-) CONFIGURATION"
+                diff_result = self._ssh_command(host, diff_cmd)
+                
+                results[role] = {
+                    "backup_result": backup_result,
+                    "current_config": current_config,
+                    "updates_applied": updates_applied,
+                    "updated_config": updated_config,
+                    "configuration_diff": diff_result,
+                    "timestamp": self._ssh_command(host, "date")
+                }
+                
+            except Exception as e:
+                results[role] = {
+                    "error": f"Advanced MCU config failed: {str(e)}"
+                }
+        
+        return {"advanced_mcu_config": results}
