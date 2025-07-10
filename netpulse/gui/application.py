@@ -427,13 +427,18 @@ Your credentials will be stored securely and encrypted."""
             ttk.Label(self.automation_params_frame, text="Action:").grid(row=0, column=0, sticky="w", padx=(0, 10))
             self.mcu_action_var = tk.StringVar(value="status")
             mcu_combo = ttk.Combobox(self.automation_params_frame, textvariable=self.mcu_action_var,
-                                   values=["status", "enable", "disable", "config", "restart"], 
+                                   values=["status", "change_mcu_value"], 
                                    state="readonly", width=15)
             mcu_combo.grid(row=0, column=1, padx=(0, 10))
             
-            ttk.Label(self.automation_params_frame, text="Config File:").grid(row=0, column=2, sticky="w", padx=(0, 10))
-            self.mcu_config_file_var = tk.StringVar(value="CONFIGURATION")
-            ttk.Entry(self.automation_params_frame, textvariable=self.mcu_config_file_var, width=15).grid(row=0, column=3)
+            # Add field for new MCU value (only shown when change_mcu_value is selected)
+            ttk.Label(self.automation_params_frame, text="New MCU Value:").grid(row=0, column=2, sticky="w", padx=(0, 10))
+            self.mcu_new_value_var = tk.StringVar()
+            self.mcu_value_entry = ttk.Entry(self.automation_params_frame, textvariable=self.mcu_new_value_var, width=15)
+            self.mcu_value_entry.grid(row=0, column=3, padx=(0, 10))
+            
+            # Bind combobox change to show/hide value entry
+            mcu_combo.bind('<<ComboboxSelected>>', self._on_mcu_action_change)
             
         elif command == "Advanced MCU Config":
             ttk.Label(self.automation_params_frame, text="Config Updates (JSON):").grid(row=0, column=0, sticky="w", padx=(0, 10))
