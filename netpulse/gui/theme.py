@@ -130,7 +130,9 @@ def apply_modern_theme(root):
                    font=ModernTheme.FONTS['default'])
     
     style.map("TEntry",
-              bordercolor=[("focus", ModernTheme.COLORS['border_focus'])])
+              bordercolor=[("focus", ModernTheme.COLORS['border_focus'])],
+              selectbackground=[("", ModernTheme.COLORS['accent_primary'])],
+              selectforeground=[("", ModernTheme.COLORS['text_primary'])])
     
     style.configure("TCombobox",
                    fieldbackground=ModernTheme.COLORS['bg_secondary'],
@@ -139,8 +141,15 @@ def apply_modern_theme(root):
                    lightcolor=ModernTheme.COLORS['border'],
                    darkcolor=ModernTheme.COLORS['border'],
                    arrowcolor=ModernTheme.COLORS['text_secondary'],
+                   selectbackground=ModernTheme.COLORS['accent_primary'],
+                   selectforeground=ModernTheme.COLORS['text_primary'],
                    padding=8,
                    font=ModernTheme.FONTS['default'])
+    
+    style.map("TCombobox",
+              bordercolor=[("focus", ModernTheme.COLORS['border_focus'])],
+              selectbackground=[("", ModernTheme.COLORS['accent_primary'])],
+              selectforeground=[("", ModernTheme.COLORS['text_primary'])])
     
     # Checkbutton and Radiobutton
     style.configure("TCheckbutton",
