@@ -39,9 +39,8 @@ NetPulse 2.0 now includes a comprehensive installation and auto-update system wi
 cd build_scripts
 build.bat
 
-# Or manually:
+# Or manually (creates NetPulse-Setup.exe automatically):
 python build.py
-python create_installer.py
 ```
 
 ### **Linux/macOS**
@@ -50,9 +49,8 @@ python create_installer.py
 cd build_scripts
 ./build.sh
 
-# Or manually:
+# Or manually (creates NetPulse-Setup automatically):
 python3 build.py
-python3 create_installer.py
 ```
 
 ### **Build Options**
@@ -177,8 +175,8 @@ python updater_enhanced.py silent
 ## 🛠️ **Build System Architecture**
 
 ### **Build Scripts**
-- `build.py`: Main build script
-- `create_installer.py`: Installer creation
+- `build.py`: Main build script (creates installer and portable packages)
+- `create_installer.py`: Standalone helper used by build.py
 - `build.bat`: Windows build script
 - `build.sh`: Linux/macOS build script
 

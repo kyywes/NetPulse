@@ -18,23 +18,13 @@ L'errore 404 all'avvio è stato risolto. NetPulse ora si avvia pulito senza erro
 
 ### Opzione 1: Creare Release su GitHub
 1. Vai su `https://github.com/kyywes/NetPulse`
-2. Clicca su "Releases" → "Create a new release"
-3. Tag version: `v2.0.0`
-4. Release title: `NetPulse 2.0.0`
-5. Descrivi le features
-6. Pubblica la release
+2. Clicca su "Releases" → "Draft a new release"
+3. Imposta il **tag** (es. `v2.0.0`)
+4. Inserisci un **titolo** (es. `NetPulse 2.0.0`)
+5. Carica i pacchetti generati dal build (`NetPulse-Setup.exe` e gli ZIP)
+6. Scrivi una breve descrizione e pubblica la release
 
-Poi nel file `/app/main.py`, rimuovi il `return` alla riga ~51:
-```python
-def check_for_updates():
-    try:
-        # Rimuovi questa riga per riabilitare:
-        # print("Update check disabled until repository releases are created")
-        # return
-        
-        app_dir = os.path.dirname(os.path.abspath(__file__))
-        # ... resto del codice
-```
+Una volta pubblicata la release, l'auto‑update di NetPulse sarà attivo in modo automatico.
 
 ### Opzione 2: Disabilitare Permanentemente
 Se non vuoi usare l'update system, lascia tutto com'è. NetPulse funziona perfettamente senza.
@@ -101,9 +91,8 @@ self.github_repo = "tuo-repository"
 - Controllo manuale sempre disponibile
 
 ### 🔄 Per Riabilitare:
-1. Crea release su GitHub
-2. Rimuovi il `return` in `main.py`
-3. Update automatici riprenderanno
+1. Crea la release su GitHub come indicato sopra
+2. Avvia NetPulse: l'app controllerà automaticamente la presenza di aggiornamenti
 
 ### 💡 Raccomandazione:
 Lascia l'update system disabilitato finché non hai bisogno di distribuire aggiornamenti. NetPulse funziona perfettamente così!
