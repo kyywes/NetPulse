@@ -146,12 +146,14 @@ class DeviceManager:
                     timeout=timeout
                 )
             else:
-                # Use password authentication
+                # Use password authentication with faster timeout
                 ssh.connect(
                     host,
                     username=self.ssh_credentials['username'], 
                     password=self.ssh_credentials['password'],
-                    timeout=timeout
+                    timeout=5,  # Faster connection timeout
+                    banner_timeout=5,  # Faster banner timeout
+                    auth_timeout=5  # Faster auth timeout
                 )
             
             stdin, stdout, stderr = ssh.exec_command(command)
