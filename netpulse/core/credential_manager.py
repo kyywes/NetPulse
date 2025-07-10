@@ -152,10 +152,10 @@ class CredentialManager:
         """Store SQL Server credentials securely"""
         try:
             # Store individual components
-            keyring.set_password(f"{self.keyring_prefix}sql-server", "server", server)
-            keyring.set_password(f"{self.keyring_prefix}sql-server", "database", database)
-            keyring.set_password(f"{self.keyring_prefix}sql-server", "username", username)
-            keyring.set_password(f"{self.keyring_prefix}sql-server", "password", password)
+            self._set_credential("sql-server", "server", server)
+            self._set_credential("sql-server", "database", database)
+            self._set_credential("sql-server", "username", username)
+            self._set_credential("sql-server", "password", password)
             
             # Store complete connection info as encrypted JSON
             connection_info = {
@@ -169,7 +169,7 @@ class CredentialManager:
             }
             
             encrypted_info = self._encrypt_data(json.dumps(connection_info))
-            keyring.set_password(f"{self.keyring_prefix}sql-server", "connection_info", encrypted_info)
+            self._set_credential("sql-server", "connection_info", encrypted_info)
             
             print("✓ SQL Server credentials stored securely")
             return True
@@ -182,16 +182,16 @@ class CredentialManager:
         """Get SQL Server credentials"""
         try:
             # Try to get complete connection info first
-            encrypted_info = keyring.get_password(f"{self.keyring_prefix}sql-server", "connection_info")
+            encrypted_info = self._get_credential("sql-server", "connection_info")
             if encrypted_info:
                 connection_info = json.loads(self._decrypt_data(encrypted_info))
                 return connection_info
             
             # Fallback to individual components
-            server = keyring.get_password(f"{self.keyring_prefix}sql-server", "server")
-            database = keyring.get_password(f"{self.keyring_prefix}sql-server", "database")
-            username = keyring.get_password(f"{self.keyring_prefix}sql-server", "username")
-            password = keyring.get_password(f"{self.keyring_prefix}sql-server", "password")
+            server = self._get_credential("sql-server", "server")
+            database = self._get_credential("sql-server", "database")
+            username = self._get_credential("sql-server", "username")
+            password = self._get_credential("sql-server", "password")
             
             if all([server, database, username, password]):
                 return {
@@ -214,11 +214,11 @@ class CredentialManager:
                             key_file: str = None) -> bool:
         """Store SSH credentials securely"""
         try:
-            keyring.set_password(f"{self.keyring_prefix}ssh", "username", username)
-            keyring.set_password(f"{self.keyring_prefix}ssh", "password", password)
+            self._set_credential("ssh", "username", username)
+            self._set_credential("ssh", "password", password)
             
             if key_file:
-                keyring.set_password(f"{self.keyring_prefix}ssh", "key_file", key_file)
+                self._set_credential("ssh", "key_file", key_file)
             
             # Store as encrypted JSON
             ssh_info = {
@@ -228,7 +228,7 @@ class CredentialManager:
             }
             
             encrypted_info = self._encrypt_data(json.dumps(ssh_info))
-            keyring.set_password(f"{self.keyring_prefix}ssh", "connection_info", encrypted_info)
+            self._set_credential("ssh", "connection_info", encrypted_info)
             
             print("✓ SSH credentials stored securely")
             return True
@@ -241,15 +241,15 @@ class CredentialManager:
         """Get SSH credentials"""
         try:
             # Try encrypted connection info first
-            encrypted_info = keyring.get_password(f"{self.keyring_prefix}ssh", "connection_info")
+            encrypted_info = self._get_credential("ssh", "connection_info")
             if encrypted_info:
                 ssh_info = json.loads(self._decrypt_data(encrypted_info))
                 return ssh_info
             
             # Fallback to individual components
-            username = keyring.get_password(f"{self.keyring_prefix}ssh", "username")
-            password = keyring.get_password(f"{self.keyring_prefix}ssh", "password")
-            key_file = keyring.get_password(f"{self.keyring_prefix}ssh", "key_file")
+            username = self._get_credential("ssh", "username")
+            password = self._get_credential("ssh", "password")
+            key_file = self._get_credential("ssh", "key_file")
             
             if username and (password or key_file):
                 return {
