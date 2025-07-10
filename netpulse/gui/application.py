@@ -932,6 +932,16 @@ Your credentials will be stored securely and encrypted."""
         
         self.automation_output_text.see(tk.END)
     
+    def _on_mcu_action_change(self, event=None):
+        """Handle MCU action selection change"""
+        action = self.mcu_action_var.get()
+        if action == "change_mcu_value":
+            # Enable the value entry
+            self.mcu_value_entry.config(state="normal")
+        else:
+            # Disable the value entry for status
+            self.mcu_value_entry.config(state="disabled")
+    
     def _stop_command(self):
         """Stop current command execution"""
         self.network_tools.stop_all_scans()
