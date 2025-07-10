@@ -595,14 +595,20 @@ class UpdateManager:
         """Restore from the latest backup"""
         try:
             if not os.path.exists(self.backup_dir):
-                messagebox.showerror("Error", "No backups available")
+                error_msg = "No backups available"
+                self.log_message(error_msg)
+                if HAS_GUI:
+                    messagebox.showerror("Error", error_msg)
                 return
             
             backups = [d for d in os.listdir(self.backup_dir) 
                       if os.path.isdir(os.path.join(self.backup_dir, d)) and d.startswith('backup_')]
             
             if not backups:
-                messagebox.showerror("Error", "No backups available")
+                error_msg = "No backups available"
+                self.log_message(error_msg)
+                if HAS_GUI:
+                    messagebox.showerror("Error", error_msg)
                 return
             
             # Get latest backup
@@ -621,10 +627,16 @@ class UpdateManager:
                 else:
                     shutil.copy2(src, dst)
             
-            messagebox.showinfo("Success", "Backup restored successfully")
+            success_msg = "Backup restored successfully"
+            self.log_message(success_msg)
+            if HAS_GUI:
+                messagebox.showinfo("Success", success_msg)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Could not restore backup: {str(e)}")
+            error_msg = f"Could not restore backup: {str(e)}"
+            self.log_message(error_msg)
+            if HAS_GUI:
+                messagebox.showerror("Error", error_msg)
     
     def restart_application(self):
         """Restart the application"""
@@ -633,7 +645,10 @@ class UpdateManager:
             subprocess.Popen([sys.executable, main_script], cwd=self.app_path)
             sys.exit(0)
         except Exception as e:
-            messagebox.showerror("Error", f"Could not restart application: {str(e)}")
+            error_msg = f"Could not restart application: {str(e)}"
+            self.log_message(error_msg)
+            if HAS_GUI:
+                messagebox.showerror("Error", error_msg)
     
     def log_message(self, message: str):
         """Log message to console and UI"""
