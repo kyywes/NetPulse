@@ -363,6 +363,48 @@ class ModernNetPulseGUI:
         self.automation_output_text.tag_config("error", foreground=ModernTheme.COLORS['error'])
         self.automation_output_text.tag_config("warning", foreground=ModernTheme.COLORS['warning'])
         self.automation_output_text.tag_config("info", foreground=ModernTheme.COLORS['accent_primary'])
+
+    def _setup_automation_params(self):
+        """Setup automation command parameters"""
+        for widget in self.automation_params_frame.winfo_children():
+            widget.destroy()
+        
+        command = self.automation_command_var.get()
+        
+        if command == "Data Management":
+            ttk.Label(self.automation_params_frame, text="New Date (optional):").grid(row=0, column=0, sticky="w", padx=(0, 10))
+            self.data_new_date_var = tk.StringVar()
+            ttk.Entry(self.automation_params_frame, textvariable=self.data_new_date_var, width=20).grid(row=0, column=1, padx=(0, 10))
+            ttk.Label(self.automation_params_frame, text="Format: YYYY-MM-DD HH:MM:SS", style="Muted.TLabel").grid(row=0, column=2, sticky="w")
+            
+        elif command == "MCU Control":
+            ttk.Label(self.automation_params_frame, text="Action:").grid(row=0, column=0, sticky="w", padx=(0, 10))
+            self.mcu_action_var = tk.StringVar(value="status")
+            mcu_combo = ttk.Combobox(self.automation_params_frame, textvariable=self.mcu_action_var,
+                                   values=["status", "enable", "disable", "config", "restart"], 
+                                   state="readonly", width=15)
+            mcu_combo.grid(row=0, column=1, padx=(0, 10))
+            
+            ttk.Label(self.automation_params_frame, text="Config File:").grid(row=0, column=2, sticky="w", padx=(0, 10))
+            self.mcu_config_file_var = tk.StringVar(value="CONFIGURATION")
+            ttk.Entry(self.automation_params_frame, textvariable=self.mcu_config_file_var, width=15).grid(row=0, column=3)
+            
+        elif command == "Advanced MCU Config":
+            ttk.Label(self.automation_params_frame, text="Config Updates (JSON):").grid(row=0, column=0, sticky="w", padx=(0, 10))
+            self.mcu_updates_var = tk.StringVar(value='{"MCU_ENABLE": "true"}')
+            ttk.Entry(self.automation_params_frame, textvariable=self.mcu_updates_var, width=40).grid(row=0, column=1, columnspan=2, padx=(0, 10))
+            
+        elif command == "Backup Config":
+            ttk.Label(self.automation_params_frame, text="Backup Type:").grid(row=0, column=0, sticky="w", padx=(0, 10))
+            self.backup_type_var = tk.StringVar(value="running")
+            backup_combo = ttk.Combobox(self.automation_params_frame, textvariable=self.backup_type_var,
+                                      values=["running", "startup", "mcu", "full"], 
+                                      state="readonly", width=15)
+            backup_combo.grid(row=0, column=1)
+    
+    def _on_automation_command_change(self, event=None):
+        """Handle automation command selection change"""
+        self._setup_automation_params()
     
     def _create_history_tab(self):
         """Create command history tab"""
