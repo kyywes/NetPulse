@@ -692,22 +692,32 @@ Your credentials will be stored securely and encrypted."""
             self.root.after(0, self._display_basic_result, error_result, execution_time)
     
     def _display_basic_result(self, result: dict, execution_time: float):
-        """Display basic command result"""
+        """Display basic command result with enhanced formatting"""
         self.progress.stop()
         
-        # Add timestamp
+        # Add timestamp with better formatting
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.basic_output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+        self.basic_output_text.insert(tk.END, f"\n╭─ [{timestamp}] ", "timestamp")
         
-        # Format and display result
+        # Add execution time
+        self.basic_output_text.insert(tk.END, f"Completed in {execution_time:.2f}s ─╮\n", "info")
+        
+        # Format and display result with enhanced styling
         if result.get('success', True):
             formatted_output = self.network_tools.format_output(result)
-            self._append_colored_text(self.basic_output_text, formatted_output)
-            self.status_var.set(f"Command completed in {execution_time:.2f}s")
+            
+            # Add border and formatting
+            self.basic_output_text.insert(tk.END, "│ ", "info")
+            self._append_colored_text(self.basic_output_text, formatted_output.replace('\n', '\n│ '))
+            self.basic_output_text.insert(tk.END, "\n╰─────────────────────────────────────────────────────────────────╯\n", "info")
+            
+            self.status_var.set(f"✓ Command completed in {execution_time:.2f}s")
         else:
             error_msg = result.get('error', 'Unknown error')
-            self.basic_output_text.insert(tk.END, f"Error: {error_msg}\n", "error")
-            self.status_var.set(f"Command failed after {execution_time:.2f}s")
+            self.basic_output_text.insert(tk.END, "│ ", "error")
+            self.basic_output_text.insert(tk.END, f"❌ Error: {error_msg}\n", "error")
+            self.basic_output_text.insert(tk.END, "╰─────────────────────────────────────────────────────────────────╯\n", "error")
+            self.status_var.set(f"✗ Command failed after {execution_time:.2f}s")
         
         self.basic_output_text.see(tk.END)
         
