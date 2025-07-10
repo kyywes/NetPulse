@@ -75,6 +75,14 @@ def show_splash():
         splash.configure(bg="#0D1117")
         splash.resizable(False, False)
         
+        # Set icon for splash screen
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icons', 'netpulse.ico')
+            if os.path.exists(icon_path):
+                splash.iconbitmap(icon_path)
+        except:
+            pass
+        
         # Center splash screen
         splash.geometry("+%d+%d" % (splash.winfo_screenwidth()//2-150, 
                                    splash.winfo_screenheight()//2-100))
