@@ -5,7 +5,6 @@ Secure credential storage and management using keyring
 """
 
 import os
-import keyring
 import json
 import base64
 from cryptography.fernet import Fernet
@@ -13,6 +12,14 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from typing import Dict, Optional, Tuple, List
 import getpass
+
+# Try to import keyring, but make it optional
+try:
+    import keyring
+    KEYRING_AVAILABLE = True
+except ImportError:
+    KEYRING_AVAILABLE = False
+    print("⚠️  Keyring not available - using file-based credential storage")
 
 class CredentialManager:
     """Secure credential management with multiple storage backends"""
