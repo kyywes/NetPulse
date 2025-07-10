@@ -152,11 +152,23 @@ def apply_modern_theme(root):
               selectforeground=[("", ModernTheme.COLORS['text_primary'])])
     
     # Checkbutton and Radiobutton
-    style.configure("TCheckbutton",
-                   background=ModernTheme.COLORS['bg_primary'],
-                   foreground=ModernTheme.COLORS['text_primary'],
-                   focuscolor=ModernTheme.COLORS['border_focus'],
-                   font=ModernTheme.FONTS['default'])
+    style.configure(
+        "TCheckbutton",
+        background=ModernTheme.COLORS["bg_primary"],
+        foreground=ModernTheme.COLORS["text_primary"],
+        focuscolor=ModernTheme.COLORS["border_focus"],
+        indicatorcolor=ModernTheme.COLORS["accent_primary"],
+        indicatordiameter=10,
+        padding=4,
+        font=ModernTheme.FONTS["default"],
+    )
+
+    style.map(
+        "TCheckbutton",
+        background=[("active", ModernTheme.COLORS["hover"]), ("selected", ModernTheme.COLORS["bg_primary"])],
+        indicatorcolor=[("selected", ModernTheme.COLORS["accent_primary"])],
+        foreground=[("disabled", ModernTheme.COLORS["text_muted"])],
+    )
     
     # Frame styles
     style.configure("TFrame",

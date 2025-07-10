@@ -343,7 +343,7 @@ class NetPulseBuilder:
         
         print("Checksums file created")
     
-    def build_all(self, include_exe=True):
+    def build_all(self, include_exe=True, include_setup=True):
         """Build all packages"""
         print(f"Building NetPulse {self.version}...")
         print("=" * 50)
@@ -369,6 +369,16 @@ class NetPulseBuilder:
         if include_exe:
             if self.create_executable(app_dir):
                 packages.append("Executable created")
+
+        # Setup executable (optional)
+        if include_setup:
+            try:
+                from create_installer import create_installer_executable
+
+                if create_installer_executable():
+                    packages.append(os.path.join(self.dist_dir, 'NetPulse-Setup.exe'))
+            except Exception as e:
+                print(f"Failed to create setup executable: {e}")
         
         # Release notes
         self.create_release_notes()
@@ -408,7 +418,7 @@ def main():
     
     # Build all packages
     try:
-        packages = builder.build_all(include_exe=not args.no_exe)
+        packages = builder.build_all(include_exe=not args.no_exe, include_setup=True)
         print(f"\nBuild completed successfully!")
         print(f"Created {len(packages)} packages")
         
