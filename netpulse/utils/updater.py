@@ -58,6 +58,15 @@ class UpdateManager:
         self.status_var = None
         self.log_text = None
         
+    def configure_github_repo(self, owner: str, repo: str = "NetPulse"):
+        """Configure GitHub repository for updates"""
+        self.github_owner = owner
+        self.github_repo = repo
+        self.github_api_url = f"https://api.github.com/repos/{self.github_owner}/{self.github_repo}/releases/latest"
+        self.github_download_url = f"https://github.com/{self.github_owner}/{self.github_repo}/archive/refs/heads/main.zip"
+        self.auto_check_enabled = True
+        print(f"✓ GitHub repository configured: {owner}/{repo}")
+    
     def load_config(self) -> Dict:
         """Load update configuration"""
         default_config = {
