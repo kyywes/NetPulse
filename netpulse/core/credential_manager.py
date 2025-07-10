@@ -350,38 +350,38 @@ class CredentialManager:
     def test_keyring_backend(self) -> Dict[str, bool]:
         """Test keyring backend functionality"""
         test_results = {
-            "keyring_available": False,
+            "keyring_available": KEYRING_AVAILABLE,
             "store_test": False,
             "retrieve_test": False,
             "delete_test": False,
-            "encryption_test": False
+            "encryption_test": False,
+            "file_storage": False
         }
         
         try:
-            # Test keyring availability
-            import keyring
-            test_results["keyring_available"] = True
-            
-            # Test store/retrieve/delete
-            test_service = f"{self.keyring_prefix}test"
-            test_value = "test_password_123"
-            
-            keyring.set_password(test_service, "test", test_value)
-            test_results["store_test"] = True
-            
-            retrieved = keyring.get_password(test_service, "test")
-            test_results["retrieve_test"] = (retrieved == test_value)
-            
-            keyring.delete_password(test_service, "test")
-            test_results["delete_test"] = True
-            
-            # Test encryption
+            # Test encryption first
             encrypted = self._encrypt_data("test_data")
             decrypted = self._decrypt_data(encrypted)
             test_results["encryption_test"] = (decrypted == "test_data")
             
+            # Test credential storage
+            test_value = "test_password_123"
+            
+            # Test store
+            self._set_credential("test", "test", test_value)
+            test_results["store_test"] = True
+            
+            # Test retrieve
+            retrieved = self._get_credential("test", "test")
+            test_results["retrieve_test"] = (retrieved == test_value)
+            
+            # Test file storage availability
+            test_results["file_storage"] = os.path.exists(self.cred_dir)
+            
+            print(f"Credential storage: {'Keyring' if KEYRING_AVAILABLE else 'File-based'}")
+            
         except Exception as e:
-            print(f"Keyring test error: {e}")
+            print(f"Credential test error: {e}")
         
         return test_results
     
