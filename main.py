@@ -62,24 +62,33 @@ def check_for_updates():
         print(f"Update check failed: {e}")
 
 def show_splash():
-    """Show application splash screen"""
+    """Show splash screen during application startup"""
+    if not HAS_GUI:
+        print("NetPulse 2.0 - Starting in headless mode...")
+        return
+        
     try:
-        splash = tk.Tk()
-        splash.overrideredirect(True)
+        splash = tk.Toplevel()
+        splash.title("NetPulse 2.0")
+        splash.geometry("300x200")
+        splash.configure(bg="#0D1117")
+        splash.resizable(False, False)
         
         # Center splash screen
-        w, h = 400, 250
-        sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
-        splash.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
-        splash.configure(bg="#0D1117")
+        splash.geometry("+%d+%d" % (splash.winfo_screenwidth()//2-150, 
+                                   splash.winfo_screenheight()//2-100))
         
-        # Splash content
-        tk.Label(splash, text="NetPulse 2.0", font=("Segoe UI", 28, "bold"),
-                fg="#3B82F6", bg="#0D1117").pack(pady=(50,10))
-        tk.Label(splash, text="Modern Network Toolkit", font=("Segoe UI", 12),
-                fg="#F9FAFB", bg="#0D1117").pack()
-        tk.Label(splash, text="Loading...", font=("Segoe UI", 10),
-                fg="#9CA3AF", bg="#0D1117").pack(pady=(20,0))
+        tk.Label(splash, text="NetPulse 2.0", 
+                font=("Segoe UI", 20, "bold"), 
+                bg="#0D1117", fg="#58A6FF").pack(pady=30)
+        
+        tk.Label(splash, text="Network Toolkit", 
+                font=("Segoe UI", 12), 
+                bg="#0D1117", fg="#8B949E").pack()
+        
+        tk.Label(splash, text="Starting up...", 
+                font=("Segoe UI", 10), 
+                bg="#0D1117", fg="#8B949E").pack(pady=10)
         
         # Progress bar
         canvas = tk.Canvas(splash, width=200, height=6,
@@ -99,6 +108,13 @@ def show_splash():
 
 def launch_application():
     """Launch the main NetPulse application"""
+    if not HAS_GUI:
+        print("NetPulse 2.0 - GUI not available, running in headless mode")
+        print("Core functionality available via Python import:")
+        print("  from netpulse.core import NetworkTools, ConfigManager")
+        print("  from netpulse.utils import UpdateManager")
+        return
+        
     try:
         # Try modern GUI first
         from netpulse.gui.application import NetPulseApplication
