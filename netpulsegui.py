@@ -6,7 +6,7 @@ import time
 import csv
 
 from netpulse import NetPulse
-from netpulsetheme import apply_dark_theme
+from netpulsetheme import apply_modern_theme
 from netpulse_automate import NetPulseAutomate
 
 class NetPulseGUI:
@@ -27,7 +27,7 @@ class NetPulseGUI:
         self.status_var      = tk.StringVar(value="Pronto.")
         self.thread          = None
 
-        apply_dark_theme(self.root)
+        apply_modern_theme(self.root)
         self.root.title("NetPulse - Network Toolkit")
         self.root.geometry("860x520")
         self.root.resizable(False, False)
