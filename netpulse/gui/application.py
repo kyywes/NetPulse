@@ -22,14 +22,25 @@ class NetPulseApplication:
         self.network_tools = NetworkTools()
         self.automate = None
         
-        # Initialize automation if DB config exists
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        db_ini = os.path.join(base_dir, "inventory", "db_config.ini")
-        if os.path.isfile(db_ini):
-            try:
-                self.automate = DeviceManager(db_ini)
-            except Exception as e:
-                print(f"Warning: Could not initialize automation: {e}")
+        # Initialize automation if DB config exists OR credentials are available
+        try:
+            from netpulse.automation.device_manager import DeviceManager
+            self.automate = DeviceManager()
+            
+            # Test connection
+            connection_test = self.automate.test_connection()
+            if connection_test["database"]:
+                print("✓ Automation system initialized with database connection")
+            elif connection_test["keyring"]:
+                print("⚠️  Automation system initialized but database credentials need setup")
+                self.automate = None  # Disable until credentials are set
+            else:
+                print("⚠️  Automation system unavailable - no credentials found")
+                self.automate = None
+                
+        except Exception as e:
+            print(f"Warning: Could not initialize automation: {e}")
+            self.automate = None
         
         # UI State
         self.current_thread = None
