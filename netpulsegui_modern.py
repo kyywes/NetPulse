@@ -798,9 +798,26 @@ class ModernNetPulseGUI:
             if command == "connect devices":
                 result = self.automate.connect_devices(marker)
             elif command == "backup config":
-                result = self.automate.backup_config(marker)
+                backup_type = getattr(self, 'backup_type_var', tk.StringVar(value="running")).get()
+                result = self.automate.backup_config(marker, backup_type)
             elif command == "pai-pl version":
                 result = self.automate.show_pai_version(marker)
+            elif command == "data management":
+                new_date = getattr(self, 'data_new_date_var', tk.StringVar()).get().strip()
+                new_date = new_date if new_date else None
+                result = self.automate.data(marker, new_date)
+            elif command == "mcu control":
+                action = getattr(self, 'mcu_action_var', tk.StringVar(value="status")).get()
+                config_file = getattr(self, 'mcu_config_file_var', tk.StringVar(value="CONFIGURATION")).get()
+                result = self.automate.mcu(marker, action, config_file)
+            elif command == "advanced mcu config":
+                import json
+                try:
+                    updates_str = getattr(self, 'mcu_updates_var', tk.StringVar(value="{}")).get()
+                    config_updates = json.loads(updates_str) if updates_str.strip() else None
+                    result = self.automate.advanced_mcu_config(marker, config_updates)
+                except json.JSONDecodeError:
+                    result = {"error": "Invalid JSON format in config updates"}
             else:
                 result = {"error": "Unknown automation command"}
             
