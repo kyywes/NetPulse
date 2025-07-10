@@ -199,6 +199,12 @@ class UpdateManager:
     
     def show_update_dialog(self, update_info: Dict):
         """Show update available dialog"""
+        if not HAS_GUI:
+            self.log_message("GUI not available - showing update info in console")
+            print(f"Update available: {update_info['version']}")
+            print(f"Description: {update_info.get('description', 'No description')}")
+            return
+            
         dialog = tk.Toplevel()
         dialog.title("Update Available")
         dialog.geometry("500x400")
