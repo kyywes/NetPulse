@@ -10,10 +10,13 @@ scrapli==2025.1.30
 # Configuration and data
 PyYAML>=6.0.2
 
-# Database (optional for automation)
+# Database (SQL Server)
 pyodbc>=4.0.0
 
-# Security
+# Credential management
+keyring>=24.0.0
+
+# Security and encryption
 cryptography>=45.0.0
 
 # Utilities
