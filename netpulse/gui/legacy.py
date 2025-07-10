@@ -20,7 +20,13 @@ class NetPulseGUI:
 
         self.root       = root
         self.netpulse   = NetPulse()
-        self.automate   = NetPulseAutomate(db_ini)
+        try:
+            from netpulse.automation.device_manager import DeviceManager
+            self.automate = DeviceManager()
+            print("✓ Automation system initialized")
+        except Exception as e:
+            print(f"Warning: Could not initialize automation: {e}")
+            self.automate = None
         self.command_var     = tk.StringVar(value="Ping")
         self.param_var       = tk.StringVar(value="")
         self.continuous_ping = tk.BooleanVar(value=False)
