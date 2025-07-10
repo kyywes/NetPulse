@@ -5,9 +5,16 @@ import threading
 import time
 import csv
 
-from netpulse import NetPulse
-from netpulsetheme import apply_modern_theme
-from netpulse_automate import NetPulseAutomate
+# Import old NetPulse for legacy support
+try:
+    from netpulse.core.network_tools import NetworkTools as NetPulse
+except ImportError:
+    # Fallback to scripts directory
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
+    from netpulse import NetPulse
+
+from netpulse.gui.theme import apply_modern_theme
 
 class NetPulseGUI:
     def __init__(self, root):
