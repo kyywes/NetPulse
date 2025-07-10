@@ -161,19 +161,19 @@ class UpdateManager:
                 
                 self.log_message(f"Update available: {latest_version}")
                 
-                if show_ui:
+                if show_ui and HAS_GUI:
                     self.show_update_dialog(update_info)
                 
                 return update_info
             else:
                 self.log_message("No updates available")
-                if show_ui:
+                if show_ui and HAS_GUI:
                     messagebox.showinfo("No Updates", "NetPulse is up to date!")
                 return None
                 
         except requests.RequestException as e:
             self.log_message(f"Update check failed: {str(e)}")
-            if show_ui:
+            if show_ui and HAS_GUI:
                 messagebox.showerror("Update Check Failed", 
                                    f"Could not check for updates:\n{str(e)}")
             return None
