@@ -44,7 +44,8 @@ class NetPulseGUI:
             values=[
                 "Ping","Traceroute","Nslookup",
                 "Subnet Info","Network Scan",
-                "Connect Devices","Backup Config","PAI-PL Version"
+                "Connect Devices","Backup Config","PAI-PL Version",
+                "Data Management","MCU Control","Advanced MCU Config"
             ],
             width=22,
             state="readonly"
