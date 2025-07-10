@@ -377,6 +377,8 @@ Your credentials will be stored securely and encrypted."""
         
         ttk.Button(buttons_frame, text="Execute", style="Accent.TButton",
                   command=self._execute_automation_command).pack(side="left", padx=(0, 10))
+        ttk.Button(buttons_frame, text="Stop", style="Danger.TButton",
+                  command=self._stop_command).pack(side="left", padx=(0, 10))
         ttk.Button(buttons_frame, text="Clear", command=self._clear_automation_output).pack(side="left", padx=(0, 10))
         ttk.Button(buttons_frame, text="Setup Credentials", 
                   command=self._setup_credentials).pack(side="right")
