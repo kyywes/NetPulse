@@ -6,7 +6,7 @@ import time
 import json
 from configparser import ConfigParser
 
-class NetPulseAutomate:
+class DeviceManager:
     def __init__(self, db_config_file="inventory/db_config.ini"):
         if not os.path.isfile(db_config_file):
             raise FileNotFoundError(f"Config DB non trovato: {db_config_file}")
