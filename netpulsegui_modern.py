@@ -8,10 +8,10 @@ import json
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from network_tools import NetworkTools
-from netpulsetheme import apply_modern_theme, ModernTheme
-from netpulse_automate import NetPulseAutomate
-from config_manager import ConfigManager
+from netpulse.core.network_tools import NetworkTools
+from netpulse.gui.theme import apply_modern_theme, ModernTheme
+from netpulse.automation.device_manager import DeviceManager
+from netpulse.core.config_manager import ConfigManager
 
 class ModernNetPulseGUI:
     """Modern NetPulse GUI with tabbed interface and enhanced features"""
@@ -27,7 +27,7 @@ class ModernNetPulseGUI:
         db_ini = os.path.join(base_dir, "inventory", "db_config.ini")
         if os.path.isfile(db_ini):
             try:
-                self.automate = NetPulseAutomate(db_ini)
+                self.automate = DeviceManager(db_ini)
             except Exception as e:
                 print(f"Warning: Could not initialize automation: {e}")
         
