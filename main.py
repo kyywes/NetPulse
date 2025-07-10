@@ -112,7 +112,14 @@ def show_splash():
 
 def launch_gui():
     root = tk.Tk()
-    NetPulseGUI(root)
+    app = NetPulseGUI(root)
+    
+    # Display UI version info
+    if MODERN_UI:
+        print("NetPulse Modern UI loaded successfully")
+    else:
+        print("NetPulse Legacy UI loaded (fallback)")
+    
     root.mainloop()
 
 
